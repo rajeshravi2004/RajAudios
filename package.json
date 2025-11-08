@@ -10,7 +10,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "preview": "vite preview",
-    "homepage": "https://github.com/saturosukuna/Rajify.git"
+    "homepage": "https://github.com/rajeshravi2004/RajAudios.git"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
