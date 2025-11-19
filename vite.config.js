@@ -1,12 +1,27 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { VitePWA } from 'vite-plugin-pwa'
-// https://vite.dev/config/
+
+const isElectron = process.env.ELECTRON === 'true' || 
+                   process.env.npm_lifecycle_event?.includes('electron') ||
+                   process.env.npm_lifecycle_script?.includes('electron-builder')
+
 export default defineConfig({
-  base: '/Rajify/',
+  base: './',
   plugins: [
     tailwindcss(),
-    react()],
-   
+    react()
+  ],
+  server: {
+    port: 5173
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  }
 })
