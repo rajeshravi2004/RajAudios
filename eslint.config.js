@@ -5,7 +5,13 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
-  { ignores: ['dist'] },
+  { ignores: ['dist', 'electron'] },
+  {
+    files: ['vite.config.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
@@ -17,7 +23,7 @@ export default [
         sourceType: 'module',
       },
     },
-    settings: { react: { version: '18.3' } },
+    settings: { react: { version: '19.0' } },
     plugins: {
       react,
       'react-hooks': reactHooks,
@@ -29,10 +35,20 @@ export default [
       ...react.configs['jsx-runtime'].rules,
       ...reactHooks.configs.recommended.rules,
       'react/jsx-no-target-blank': 'off',
+      // Prop types not used in this project (no TypeScript, consistent pattern)
+      'react/prop-types': 'off',
+      // Allow unused vars with _ prefix convention
+      'no-unused-vars': ['warn', { 
+        varsIgnorePattern: '^_', 
+        argsIgnorePattern: '^_',
+        destructuredArrayIgnorePattern: '^_'
+      }],
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
       ],
+      // Allow exhaustive-deps as warning only
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
 ]

@@ -2,13 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image" href="/fav.jpg" />
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <title>Rajify - Music Player</title>
-    
+    <link rel="icon" type="image/jpeg" href="/fav.jpg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#09090f" />
+    <meta name="description" content="Rajify — Personalized music discovery powered by YouTube. Discover trending, new, and recommended music across languages." />
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Rajify — Music Discovery" />
+    <meta property="og:description" content="Personalized music discovery, trending music, and smart recommendations." />
+    <meta property="og:type" content="website" />
+
+    <!-- Security headers (Electron renderer) -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self' 'unsafe-inline' 'unsafe-eval';
+      media-src *;
+      img-src * data: blob:;
+      connect-src * data:;
+      frame-src https://www.youtube.com https://youtube.com;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://www.youtube-nocookie.com;
+    " />
+
+    <title>Rajify — Music Discovery</title>
   </head>
   <body>
     <div id="root"></div>
