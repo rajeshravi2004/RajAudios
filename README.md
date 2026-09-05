@@ -1,6 +1,12 @@
 # Rajify - Spotify-like Music Player
 
-A desktop music player application built with React, Electron, and YouTube API. Features a Spotify-like interface with playlists, shuffle, repeat, queue management, and more.
+A web and desktop music player built with React, Electron, and the YouTube API. It features a Spotify-like interface with playlists, shuffle, repeat, queue management, and more.
+
+## Live App
+
+### [Open Rajify](https://rajaudios.vercel.app)
+
+The web app is deployed on Vercel's free Hobby plan. YouTube API requests are handled by a serverless API route so the API keys are not included in the browser bundle.
 
 ## Features
 
@@ -36,7 +42,7 @@ A desktop music player application built with React, Electron, and YouTube API. 
    
    Create a `.env` file in the root directory:
    ```
-   VITE_YOUTUBE_API_KEY=your_youtube_api_key_here
+   YOUTUBE_API_KEYS=your_youtube_api_key_here
    ```
 
 ## Development

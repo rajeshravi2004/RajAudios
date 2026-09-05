@@ -4,8 +4,8 @@
  * All API calls go through the Electron IPC bridge (window.electronAPI.youtube)
  * The API key lives ONLY in the Electron main process.
  * 
- * In non-Electron environments (browser dev mode), calls fall back to direct
- * fetch with VITE_YOUTUBE_API_KEY — clearly isolated here.
+ * In browser environments, calls use the same-origin Vercel API route so API
+ * keys remain server-side.
  */
 
 import { cacheStorage } from '../utils/storage.js'
@@ -58,85 +58,19 @@ const ytapi = {
   },
 }
 
-// ─── Multi-Key Pool with Automatic Failover ──────────────────────────────────
-const getBrowserKeys = () => {
-  const metaEnv = typeof import.meta !== 'undefined' ? import.meta.env : {}
-
-  const raw = metaEnv?.VITE_YOUTUBE_API_KEYS 
-    || metaEnv?.VITE_YOUTUBE_API_KEY
-    || ''
-
-  const parsed = raw
-    .split(',')
-    .map(k => k.trim().replace(/^["']|["']$/g, ''))
-    .filter(Boolean)
-
-  return parsed
-}
-
-let browserActiveKeyIdx = 0
-const browserExhaustedKeys = new Map()
-
-const getNextBrowserKey = () => {
-  const keys = getBrowserKeys()
-  if (keys.length === 0) return null
-  const now = Date.now()
-  for (const [k, time] of browserExhaustedKeys.entries()) {
-    if (now - time > 6 * 60 * 60 * 1000) browserExhaustedKeys.delete(k)
-  }
-  for (let i = 0; i < keys.length; i++) {
-    const idx = (browserActiveKeyIdx + i) % keys.length
-    const key = keys[idx]
-    if (!browserExhaustedKeys.has(key)) {
-      browserActiveKeyIdx = idx
-      return key
-    }
-  }
-  return keys[0]
-}
-
-const YT_BASE = 'https://www.googleapis.com/youtube/v3'
-
 const browserFetch = async (endpoint, params) => {
-  const keys = getBrowserKeys()
-  if (keys.length === 0) {
-    return { error: 'NO_API_KEY', message: 'No API key configured. Add VITE_YOUTUBE_API_KEYS to .env' }
+  const url = new URL('/api/youtube', window.location.origin)
+  url.searchParams.set('endpoint', endpoint)
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null) url.searchParams.set(key, String(value))
   }
 
-  const maxAttempts = keys.length
-  let lastError = null
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const key = getNextBrowserKey()
-    if (!key) break
-
-    const url = new URL(`${YT_BASE}/${endpoint}`)
-    url.searchParams.set('key', key)
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null) url.searchParams.set(k, String(v))
-    }
-
-    try {
-      const res = await fetch(url.toString())
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        const reason = err?.error?.errors?.[0]?.reason
-        if (res.status === 403 && (reason === 'quotaExceeded' || reason === 'dailyLimitExceeded' || reason === 'rateLimitExceeded' || reason === 'userRateLimitExceeded')) {
-          console.warn(`[Rajify] YouTube API key quota reached for ${key.slice(0, 10)}... Switching to next key.`)
-          browserExhaustedKeys.set(key, Date.now())
-          browserActiveKeyIdx = (browserActiveKeyIdx + 1) % keys.length
-          lastError = { error: 'QUOTA_EXCEEDED', message: 'API quota reached. Trying next key...' }
-          continue
-        }
-        return { error: 'API_ERROR', message: err?.error?.message || `HTTP ${res.status}` }
-      }
-      return await res.json()
-    } catch (e) {
-      return { error: 'NETWORK_ERROR', message: e.message }
-    }
+  try {
+    const response = await fetch(url)
+    return await response.json()
+  } catch (error) {
+    return { error: 'NETWORK_ERROR', message: error.message }
   }
-
-  return lastError || { error: 'QUOTA_EXCEEDED', message: 'All configured YouTube API keys have reached their quota limits.' }
 }
 
 // ─── Error checking ────────────────────────────────────────────────────────────

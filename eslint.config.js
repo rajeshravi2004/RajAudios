@@ -7,7 +7,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 export default [
   { ignores: ['dist', 'electron'] },
   {
-    files: ['vite.config.js'],
+    files: ['vite.config.js', 'api/**/*.js'],
     languageOptions: {
       globals: globals.node,
     },
