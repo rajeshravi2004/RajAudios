@@ -23,9 +23,10 @@ import { SettingsPage } from './features/settings/SettingsPage.jsx'
 import { AuthGate } from './features/auth/AuthGate.jsx'
 import { AdminPage } from './features/admin/AdminPage.jsx'
 import { ToastProvider } from './components/ui/Toast.jsx'
+import { DialogProvider } from './components/ui/Dialog.jsx'
 import { PlayerProvider, usePlayer } from './stores/playerStore.jsx'
 import { LibraryProvider, useLibrary } from './stores/libraryStore.jsx'
-import { SettingsProvider } from './stores/settingsStore.jsx'
+import { SettingsProvider, useSettings } from './stores/settingsStore.jsx'
 import { AuthProvider } from './stores/authStore.jsx'
 import { useYouTubePlayer } from './hooks/useYouTubePlayer.js'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js'
@@ -34,13 +35,13 @@ import { migrateCookieData } from './utils/storage.js'
 // ─── App Shell (inside providers) ─────────────────────────────────────────────
 function AppShell() {
   const [currentView, setCurrentView] = useState('home')
-  const [viewHistory, setViewHistory] = useState([]) // for back navigation
   const [showQueue, setShowQueue] = useState(false)
   const [currentPlaylist, setCurrentPlaylist] = useState(null) // YouTube playlist
   const [currentUserPlaylist, setCurrentUserPlaylist] = useState(null)
   
-  const { playlists } = useLibrary()
+  const { playlists, addToHistory } = useLibrary()
   const { mediaMode, setMediaMode, currentTrack } = usePlayer()
+  const { settings } = useSettings()
 
   // Initialize YouTube player and keyboard shortcuts
   useYouTubePlayer()
@@ -51,28 +52,21 @@ function AppShell() {
     migrateCookieData()
   }, [])
 
+  // Record a track as soon as the user starts it so Recently Played updates live.
+  useEffect(() => {
+    if (currentTrack && settings.saveHistory) {
+      addToHistory(currentTrack)
+    }
+  }, [currentTrack, settings.saveHistory, addToHistory])
+
   const navigate = useCallback((view) => {
-    setViewHistory(prev => [...prev.slice(-10), currentView])
     setCurrentView(view)
     // Clear sub-pages when navigating to top-level
     if (!view.startsWith('playlist:')) {
       setCurrentPlaylist(null)
       setCurrentUserPlaylist(null)
     }
-  }, [currentView])
-
-  const goBack = useCallback(() => {
-    if (currentPlaylist || currentUserPlaylist) {
-      setCurrentPlaylist(null)
-      setCurrentUserPlaylist(null)
-      return
-    }
-    const prev = viewHistory[viewHistory.length - 1]
-    if (prev) {
-      setCurrentView(prev)
-      setViewHistory(h => h.slice(0, -1))
-    }
-  }, [currentPlaylist, currentUserPlaylist, viewHistory])
+  }, [])
 
   // Handle opening a YouTube playlist from the discovery service
   const handleOpenPlaylist = useCallback((playlist) => {
@@ -133,29 +127,26 @@ function AppShell() {
     // Library sub-views via sidebar
     const sidebarView = currentView
     if (sidebarView === 'liked') {
-      return (
-        <LibraryPage
-          initialTab="liked"
-          onOpenPlaylist={handleOpenPlaylist}
-          onOpenUserPlaylist={handleOpenUserPlaylist}
+        return (
+          <LibraryPage
+            initialTab="liked"
+            onOpenUserPlaylist={handleOpenUserPlaylist}
         />
       )
     }
     if (sidebarView === 'playlists') {
       return (
-        <LibraryPage
-          initialTab="playlists"
-          onOpenPlaylist={handleOpenPlaylist}
-          onOpenUserPlaylist={handleOpenUserPlaylist}
+          <LibraryPage
+            initialTab="playlists"
+            onOpenUserPlaylist={handleOpenUserPlaylist}
         />
       )
     }
     if (sidebarView === 'history') {
       return (
-        <LibraryPage
-          initialTab="history"
-          onOpenPlaylist={handleOpenPlaylist}
-          onOpenUserPlaylist={handleOpenUserPlaylist}
+          <LibraryPage
+            initialTab="history"
+            onOpenUserPlaylist={handleOpenUserPlaylist}
         />
       )
     }
@@ -164,13 +155,12 @@ function AppShell() {
       case 'home':
         return <HomePage onOpenPlaylist={handleOpenPlaylist} />
       case 'search':
-        return <SearchPage />
+        return <SearchPage onOpenPlaylist={handleOpenPlaylist} />
       case 'trending':
         return <TrendingPage />
       case 'library':
         return (
           <LibraryPage
-            onOpenPlaylist={handleOpenPlaylist}
             onOpenUserPlaylist={handleOpenUserPlaylist}
           />
         )
@@ -274,7 +264,9 @@ export default function App() {
           <LibraryProvider>
             <PlayerProvider>
               <ToastProvider>
-                <AppShell />
+                <DialogProvider>
+                  <AppShell />
+                </DialogProvider>
               </ToastProvider>
             </PlayerProvider>
           </LibraryProvider>

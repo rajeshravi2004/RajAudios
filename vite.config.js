@@ -2,10 +2,6 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-const isElectron = process.env.ELECTRON === 'true' || 
-                   process.env.npm_lifecycle_event?.includes('electron') ||
-                   process.env.npm_lifecycle_script?.includes('electron-builder')
-
 export default defineConfig({
   base: './',
   plugins: [

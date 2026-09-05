@@ -3,10 +3,11 @@
  */
 
 import { useState } from 'react'
-import { XMarkIcon, TrashIcon, QueueListIcon, PlayIcon } from '@heroicons/react/24/solid'
+import { XMarkIcon, QueueListIcon } from '@heroicons/react/24/solid'
 import { usePlayer } from '../../stores/playerStore.jsx'
 import { useLibrary } from '../../stores/libraryStore.jsx'
 import { formatDuration } from '../../utils/formatters.js'
+import { useDialog } from '../../components/ui/Dialog.jsx'
 
 export function QueuePanel({ onClose }) {
   const {
@@ -14,12 +15,12 @@ export function QueuePanel({ onClose }) {
     contextTracks,
     currentIndex,
     queue,
-    isPlaying,
     playTrack,
     removeFromQueue,
     clearQueue,
   } = usePlayer()
   const { createPlaylist } = useLibrary()
+  const { prompt: showPrompt } = useDialog()
   const [saving, setSaving] = useState(false)
 
   const upNext = contextTracks.slice(currentIndex + 1)
@@ -27,11 +28,18 @@ export function QueuePanel({ onClose }) {
   const handleSaveQueueAsPlaylist = async () => {
     const allTracks = [...queue, ...upNext]
     if (allTracks.length === 0) return
-    const name = prompt('Playlist name:', 'My Queue')
-    if (!name?.trim()) return
+    const name = await showPrompt({
+      title: 'Save queue as playlist',
+      message: `${allTracks.length} track${allTracks.length === 1 ? '' : 's'} will be saved in their current order.`,
+      inputLabel: 'Playlist name',
+      defaultValue: 'My Queue',
+      confirmLabel: 'Save playlist',
+      required: true,
+    })
+    if (!name) return
     setSaving(true)
     try {
-      await createPlaylist(name.trim(), allTracks)
+      await createPlaylist(name, allTracks)
     } finally {
       setSaving(false)
     }
@@ -161,11 +169,20 @@ function QueueTrackRow({ track, isActive, onRemove, onPlay }) {
 
   return (
     <div
-      className={`flex items-center gap-3 p-2 rounded-lg group transition-colors cursor-pointer ${
+      className={`flex items-center gap-3 p-2 rounded-lg group transition-colors ${onPlay ? 'cursor-pointer' : ''} ${
         isActive ? '' : 'hover:bg-white/5'
       }`}
       style={{ background: isActive ? 'var(--accent-subtle)' : '' }}
       onClick={onPlay}
+      onKeyDown={event => {
+        if (event.target === event.currentTarget && onPlay && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault()
+          onPlay()
+        }
+      }}
+      role={onPlay ? 'button' : undefined}
+      tabIndex={onPlay ? 0 : undefined}
+      aria-label={onPlay ? `Play ${track.title}` : undefined}
     >
       <div className="relative flex-shrink-0">
         {!imgError ? (

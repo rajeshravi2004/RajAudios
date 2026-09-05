@@ -4,9 +4,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { MagnifyingGlassIcon, XMarkIcon, ClockIcon } from '@heroicons/react/24/solid'
-import { TrackCard, PlaylistCard } from '../../components/TrackCard.jsx'
+import { PlaylistCard } from '../../components/TrackCard.jsx'
 import { TrackList } from '../../components/TrackList.jsx'
-import { SkeletonCard, SkeletonTrackRow } from '../../components/ui/SkeletonLoader.jsx'
+import { SkeletonTrackRow } from '../../components/ui/SkeletonLoader.jsx'
 import { ErrorState, EmptyState } from '../../components/ui/ErrorState.jsx'
 import { usePlayer } from '../../stores/playerStore.jsx'
 import { useSettings } from '../../stores/settingsStore.jsx'
@@ -36,7 +36,7 @@ function clearRecentSearches() {
   try { localStorage.removeItem(RECENT_SEARCHES_KEY) } catch { /* ignore */ }
 }
 
-export function SearchPage({ initialQuery = '' }) {
+export function SearchPage({ initialQuery = '', onOpenPlaylist }) {
   const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState(null) // null = no search yet
   const [loading, setLoading] = useState(false)
@@ -47,7 +47,7 @@ export function SearchPage({ initialQuery = '' }) {
   const debouncedQuery = useDebounce(query, 400)
   const { settings } = useSettings()
   const { playTrack } = usePlayer()
-  const abortRef = useRef(null)
+  const requestIdRef = useRef(0)
 
   // Auto-focus search input
   useEffect(() => {
@@ -57,8 +57,10 @@ export function SearchPage({ initialQuery = '' }) {
   // Search when debounced query changes
   useEffect(() => {
     if (!debouncedQuery.trim()) {
+      requestIdRef.current += 1
       setResults(null)
       setError(null)
+      setLoading(false)
       return
     }
     doSearch(debouncedQuery)
@@ -67,14 +69,11 @@ export function SearchPage({ initialQuery = '' }) {
   const doSearch = useCallback(async (q) => {
     if (!q.trim()) return
     
-    // Cancel previous request
-    if (abortRef.current) abortRef.current = true
-    abortRef.current = false
+    // Ignore responses from searches superseded by a newer query.
+    const requestId = ++requestIdRef.current
 
     setLoading(true)
     setError(null)
-
-    const currentAbort = abortRef.current
 
     try {
       const data = await universalSearch({ 
@@ -84,7 +83,7 @@ export function SearchPage({ initialQuery = '' }) {
       })
 
       // Don't update if a newer request has started
-      if (currentAbort !== abortRef.current) return
+      if (requestId !== requestIdRef.current) return
 
       if (data.videoError && data.playlistError) {
         setError(data.videoError || data.playlistError)
@@ -98,11 +97,11 @@ export function SearchPage({ initialQuery = '' }) {
         if (data.videos.length > 0) setActiveTab('songs')
         else if (data.playlists.length > 0) setActiveTab('playlists')
       }
-    } catch (e) {
-      if (currentAbort !== abortRef.current) return
+    } catch {
+      if (requestId !== requestIdRef.current) return
       setError('Search failed. Check your connection and try again.')
     } finally {
-      setLoading(false)
+      if (requestId === requestIdRef.current) setLoading(false)
     }
   }, [settings.region])
 
@@ -256,6 +255,7 @@ export function SearchPage({ initialQuery = '' }) {
                     key={`${playlist.id}-${i}`}
                     playlist={playlist}
                     size="md"
+                    onClick={onOpenPlaylist}
                   />
                 ))}
               </div>

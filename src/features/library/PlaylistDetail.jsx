@@ -3,16 +3,15 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { PlayIcon, ArrowPathIcon, HeartIcon, BookmarkIcon, ArrowLeftIcon, PlusCircleIcon } from '@heroicons/react/24/solid'
-import { HeartIcon as HeartOutline } from '@heroicons/react/24/outline'
+import { PlayIcon, ArrowPathIcon, BookmarkIcon, ArrowLeftIcon } from '@heroicons/react/24/solid'
 import { TrackList } from '../../components/TrackList.jsx'
 import { SkeletonPlaylistHeader, SkeletonTrackRow } from '../../components/ui/SkeletonLoader.jsx'
 import { ErrorState } from '../../components/ui/ErrorState.jsx'
 import { usePlayer } from '../../stores/playerStore.jsx'
 import { useLibrary } from '../../stores/libraryStore.jsx'
-import { useSettings } from '../../stores/settingsStore.jsx'
 import { getPlaylistTracks, enrichTracks } from '../../services/youtubeService.js'
 import { shuffleArray, formatDuration } from '../../utils/formatters.js'
+import { useDialog } from '../../components/ui/Dialog.jsx'
 
 export function PlaylistDetail({ playlist, onBack }) {
   const [tracks, setTracks] = useState([])
@@ -21,6 +20,7 @@ export function PlaylistDetail({ playlist, onBack }) {
   const [imgError, setImgError] = useState(false)
   const { playTrack, shuffle } = usePlayer()
   const { createPlaylist } = useLibrary()
+  const { prompt: showPrompt } = useDialog()
 
   const loadTracks = useCallback(async () => {
     if (!playlist?.id) return
@@ -58,9 +58,16 @@ export function PlaylistDetail({ playlist, onBack }) {
   }
 
   const handleSavePlaylist = async () => {
-    const name = prompt('Save as playlist:', playlist.title)
-    if (!name?.trim()) return
-    await createPlaylist(name.trim(), tracks)
+    const name = await showPrompt({
+      title: 'Save to your library',
+      message: 'Choose a name for this playlist.',
+      inputLabel: 'Playlist name',
+      defaultValue: playlist.title,
+      confirmLabel: 'Save playlist',
+      required: true,
+    })
+    if (!name) return
+    await createPlaylist(name, tracks)
   }
 
   const totalDuration = tracks.reduce((sum, t) => sum + (t.durationSec || 0), 0)

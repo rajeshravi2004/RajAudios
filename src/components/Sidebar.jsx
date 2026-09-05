@@ -21,7 +21,6 @@ import {
   HomeIcon as HomeSolid,
   MagnifyingGlassIcon as SearchSolid,
   FireIcon as FireSolid,
-  MusicalNoteIcon as MusicSolid,
   HeartIcon as HeartSolid,
   QueueListIcon as QueueSolid,
   ClockIcon as ClockSolid,
@@ -31,6 +30,7 @@ import {
 import { useLibrary } from '../stores/libraryStore.jsx'
 import { usePlayer } from '../stores/playerStore.jsx'
 import { useAuth } from '../stores/authStore.jsx'
+import { useDialog } from './ui/Dialog.jsx'
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Home', icon: HomeIcon, activeIcon: HomeSolid },
@@ -48,6 +48,7 @@ export function Sidebar({ currentView, onNavigate }) {
   const { playlists, favorites, createPlaylist } = useLibrary()
   const { currentTrack } = usePlayer()
   const { user, profile, isAdmin } = useAuth()
+  const { prompt: showPrompt } = useDialog()
   const [libraryExpanded, setLibraryExpanded] = useState(true)
 
   const NavButton = ({ item }) => {
@@ -73,9 +74,16 @@ export function Sidebar({ currentView, onNavigate }) {
   }
 
   const handleCreatePlaylist = async () => {
-    const name = prompt('Playlist name:')
-    if (name?.trim()) {
-      await createPlaylist(name.trim())
+    const name = await showPrompt({
+      title: 'Create a playlist',
+      message: 'Give your new playlist a name. You can add songs to it afterward.',
+      inputLabel: 'Playlist name',
+      placeholder: 'My playlist',
+      confirmLabel: 'Create playlist',
+      required: true,
+    })
+    if (name) {
+      await createPlaylist(name)
     }
   }
 

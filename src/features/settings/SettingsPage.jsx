@@ -19,6 +19,7 @@ import { useSettings, LANGUAGES } from '../../stores/settingsStore.jsx'
 import { useLibrary } from '../../stores/libraryStore.jsx'
 import { useAuth } from '../../stores/authStore.jsx'
 import { useToastContext } from '../../components/ui/Toast.jsx'
+import { useDialog } from '../../components/ui/Dialog.jsx'
 import { cacheStorage } from '../../utils/storage.js'
 import {
   clearSessionApiKey,
@@ -73,6 +74,7 @@ export function SettingsPage() {
   const { clearHistory } = useLibrary()
   const { user, profile, isConfigured, signInWithGoogle, signOut } = useAuth()
   const { toast } = useToastContext()
+  const { confirm: showConfirm } = useDialog()
   const activeApiKey = useSessionApiKey()
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [showApiKey, setShowApiKey] = useState(false)
@@ -119,12 +121,30 @@ export function SettingsPage() {
   }
 
   const handleResetApp = async () => {
-    if (!confirm('Reset local history, settings, and cached music data?')) return
+    const confirmed = await showConfirm({
+      title: 'Reset local data?',
+      message: 'This clears listening history, restores default settings, removes cached discovery data, and forgets the session API key.',
+      confirmLabel: 'Reset local data',
+      tone: 'danger',
+    })
+    if (!confirmed) return
     await resetSettings()
     await clearHistory()
     await cacheStorage.clear()
     clearSessionApiKey()
     toast('Local app data has been reset.', 'success')
+  }
+
+  const handleClearHistory = async () => {
+    const confirmed = await showConfirm({
+      title: 'Clear listening history?',
+      message: 'Recently played songs and listening signals used for recommendations will be removed.',
+      confirmLabel: 'Clear history',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+    await clearHistory()
+    toast('Listening history cleared.', 'success')
   }
 
   const syncLabel = {
@@ -253,7 +273,7 @@ export function SettingsPage() {
             <SettingRow label="Personalized discovery" description="Use listening signals to improve suggestions">
               <Toggle value={settings.personalizedRecommendations} onChange={value => updateSettings({ personalizedRecommendations: value })} />
             </SettingRow>
-            <button className="text-button" onClick={clearHistory}>Clear listening history</button>
+            <button className="text-button" onClick={handleClearHistory}>Clear listening history</button>
           </SectionCard>
 
           <SectionCard icon={CircleStackIcon} title="Data controls" description="Refresh temporary data or reset this installation" tone="danger">

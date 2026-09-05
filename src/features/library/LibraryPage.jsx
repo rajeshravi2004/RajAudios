@@ -10,6 +10,7 @@ import { EmptyState } from '../../components/ui/ErrorState.jsx'
 import { usePlayer } from '../../stores/playerStore.jsx'
 import { useLibrary } from '../../stores/libraryStore.jsx'
 import { formatRelativeTime } from '../../utils/formatters.js'
+import { useDialog } from '../../components/ui/Dialog.jsx'
 
 const TABS = [
   { id: 'liked', label: 'Liked Songs', icon: HeartIcon },
@@ -17,7 +18,7 @@ const TABS = [
   { id: 'history', label: 'Recently Played', icon: ClockIcon },
 ]
 
-export function LibraryPage({ onOpenPlaylist, onOpenUserPlaylist, initialTab = 'liked' }) {
+export function LibraryPage({ onOpenUserPlaylist, initialTab = 'liked' }) {
   const [activeTab, setActiveTab] = useState(initialTab)
   const { playTrack } = usePlayer()
   const {
@@ -145,9 +146,28 @@ function LikedSongsTab({ tracks, onPlay, onUnlike }) {
 }
 
 function PlaylistsTab({ playlists, onOpenPlaylist, onDelete, onCreatePlaylist }) {
+  const { confirm: showConfirm, prompt: showPrompt } = useDialog()
+
   const handleCreate = async () => {
-    const name = prompt('Playlist name:')
-    if (name?.trim()) await onCreatePlaylist(name.trim())
+    const name = await showPrompt({
+      title: 'Create a playlist',
+      message: 'Give your new playlist a name. You can add songs to it afterward.',
+      inputLabel: 'Playlist name',
+      placeholder: 'My playlist',
+      confirmLabel: 'Create playlist',
+      required: true,
+    })
+    if (name) await onCreatePlaylist(name)
+  }
+
+  const handleDelete = async (playlist) => {
+    const confirmed = await showConfirm({
+      title: 'Delete playlist?',
+      message: `“${playlist.title}” will be removed from your library. The songs themselves will not be deleted.`,
+      confirmLabel: 'Delete playlist',
+      tone: 'danger',
+    })
+    if (confirmed) await onDelete(playlist.id)
   }
 
   return (
@@ -191,6 +211,15 @@ function PlaylistsTab({ playlists, onOpenPlaylist, onDelete, onCreatePlaylist })
               className="flex items-center gap-4 p-3 rounded-xl cursor-pointer group transition-colors"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border-card)' }}
               onClick={() => onOpenPlaylist?.(playlist)}
+              onKeyDown={event => {
+                if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                  event.preventDefault()
+                  onOpenPlaylist?.(playlist)
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Open playlist: ${playlist.title}`}
             >
               {playlist.thumbnail ? (
                 <img src={playlist.thumbnail} alt={playlist.title}
@@ -208,7 +237,7 @@ function PlaylistsTab({ playlists, onOpenPlaylist, onDelete, onCreatePlaylist })
                 </p>
               </div>
               <button
-                onClick={(e) => { e.stopPropagation(); onDelete(playlist.id) }}
+                onClick={(e) => { e.stopPropagation(); handleDelete(playlist) }}
                 className="icon-btn opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300"
                 aria-label="Delete playlist"
               >
@@ -223,6 +252,18 @@ function PlaylistsTab({ playlists, onOpenPlaylist, onDelete, onCreatePlaylist })
 }
 
 function HistoryTab({ tracks, onPlay, onClear }) {
+  const { confirm: showConfirm } = useDialog()
+
+  const handleClear = async () => {
+    const confirmed = await showConfirm({
+      title: 'Clear listening history?',
+      message: 'Your recently played songs and the listening signals used for recommendations will be removed.',
+      confirmLabel: 'Clear history',
+      tone: 'danger',
+    })
+    if (confirmed) await onClear()
+  }
+
   if (tracks.length === 0) {
     return (
       <EmptyState
@@ -238,7 +279,7 @@ function HistoryTab({ tracks, onPlay, onClear }) {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold">Recently Played</h2>
         <button
-          onClick={onClear}
+          onClick={handleClear}
           className="text-sm transition-colors"
           style={{ color: 'var(--text-muted)' }}
         >

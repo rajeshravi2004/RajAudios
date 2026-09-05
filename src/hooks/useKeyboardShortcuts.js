@@ -7,10 +7,9 @@
 import { useEffect } from 'react'
 import { usePlayer } from '../stores/playerStore.jsx'
 
-const isInputFocused = () => {
-  const el = document.activeElement
-  if (!el) return false
-  return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable
+const shouldIgnoreShortcut = (target) => {
+  if (!(target instanceof Element)) return false
+  return Boolean(target.closest('input, textarea, select, button, a[href], [role="button"], [contenteditable="true"]'))
 }
 
 export function useKeyboardShortcuts() {
@@ -18,7 +17,7 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (isInputFocused()) return
+      if (shouldIgnoreShortcut(e.target)) return
 
       switch (e.key) {
         case ' ':

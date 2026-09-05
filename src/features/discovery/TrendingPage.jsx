@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { FireIcon } from '@heroicons/react/24/solid'
 import { TrackList } from '../../components/TrackList.jsx'
-import { SkeletonSection, SkeletonTrackRow } from '../../components/ui/SkeletonLoader.jsx'
+import { SkeletonTrackRow } from '../../components/ui/SkeletonLoader.jsx'
 import { ErrorState } from '../../components/ui/ErrorState.jsx'
 import { usePlayer } from '../../stores/playerStore.jsx'
 import { useSettings } from '../../stores/settingsStore.jsx'

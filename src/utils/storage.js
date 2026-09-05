@@ -34,7 +34,7 @@ const openDB = () => {
   }
   if (db) return Promise.resolve(db)
   
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     try {
       const req = indexedDB.open(DB_NAME, DB_VERSION)
       

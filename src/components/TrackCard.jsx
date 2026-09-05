@@ -3,8 +3,8 @@
  */
 
 import { useState } from 'react'
-import { PlayIcon, PauseIcon } from '@heroicons/react/24/solid'
-import { HeartIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline'
+import { PlayIcon } from '@heroicons/react/24/solid'
+import { HeartIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
 import { usePlayer } from '../stores/playerStore.jsx'
 import { useLibrary } from '../stores/libraryStore.jsx'
@@ -12,7 +12,7 @@ import { formatDuration } from '../utils/formatters.js'
 
 export function TrackCard({ track, contextTracks, explanation, onPlay, size = 'md' }) {
   const [imgError, setImgError] = useState(false)
-  const { currentTrack, isPlaying, playTrack } = usePlayer()
+  const { currentTrack, isPlaying, playTrack, togglePlayPause } = usePlayer()
   const { isFavorite, toggleFavorite } = useLibrary()
   
   const isActive = currentTrack?.id === track.id
@@ -26,6 +26,10 @@ export function TrackCard({ track, contextTracks, explanation, onPlay, size = 'm
   
   const handlePlay = (e) => {
     e.stopPropagation()
+    if (isActive) {
+      togglePlayPause()
+      return
+    }
     if (onPlay) {
       onPlay(track)
     } else {
@@ -44,8 +48,13 @@ export function TrackCard({ track, contextTracks, explanation, onPlay, size = 'm
       onClick={handlePlay}
       role="button"
       tabIndex={0}
-      aria-label={`Play ${track.title}`}
-      onKeyDown={(e) => e.key === 'Enter' && handlePlay(e)}
+      aria-label={`${isActive && isPlaying ? 'Pause' : 'Play'} ${track.title}`}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          handlePlay(e)
+        }
+      }}
     >
       {/* Thumbnail */}
       <div className="relative mb-3 rounded-lg overflow-hidden aspect-square group">
@@ -159,7 +168,12 @@ export function PlaylistCard({ playlist, onClick, size = 'md' }) {
       role="button"
       tabIndex={0}
       aria-label={`Open playlist: ${playlist.title}`}
-      onKeyDown={(e) => e.key === 'Enter' && onClick?.(playlist)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.(playlist)
+        }
+      }}
     >
       <div className="relative mb-3 rounded-lg overflow-hidden aspect-square group">
         {!imgError && playlist.thumbnail ? (

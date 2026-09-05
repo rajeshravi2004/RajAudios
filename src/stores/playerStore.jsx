@@ -168,7 +168,7 @@ export function PlayerProvider({ children }) {
   // Persist queue changes
   useEffect(() => {
     queueStorage.save({ tracks: state.queue, currentIndex: state.currentIndex })
-  }, [state.queue])
+  }, [state.queue, state.currentIndex])
 
   // ── Progress tracking ────────────────────────────────────────────────────────
   useEffect(() => {

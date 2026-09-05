@@ -114,6 +114,26 @@ a {
   text-decoration: none;
 }
 
+/* Keep every interactive control visually discoverable. */
+:where(
+  button:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  summary,
+  label[for],
+  [role="button"]:not([aria-disabled="true"]),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="range"]:not(:disabled)
+) {
+  cursor: pointer;
+}
+
+:where(button, select, input):disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* ─── Focus styles ────────────────────────────────────────────────────────────── */
 :focus-visible {
   outline: 2px solid var(--accent-bright);
@@ -420,6 +440,45 @@ input[type="range"]::-moz-range-thumb {
 .toast-success { background: #0d2318; border: 1px solid #166534; color: #4ade80; }
 .toast-error { background: #2d0d14; border: 1px solid #7f1d1d; color: #f87171; }
 .toast-warning { background: #1c1507; border: 1px solid #78350f; color: #fbbf24; }
+
+/* Custom prompts and confirmations */
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 3, 8, 0.76);
+  backdrop-filter: blur(8px);
+}
+
+.app-dialog {
+  position: relative;
+  width: min(430px, 100%);
+  padding: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(145deg, #191922, #101017);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.6);
+  animation: dialog-in 160ms ease-out;
+}
+
+.app-dialog h2 { padding-right: 34px; font-size: 20px; letter-spacing: -0.02em; }
+.app-dialog > p { margin-top: 9px; color: var(--text-secondary); line-height: 1.6; }
+.dialog-close { position: absolute; top: 14px; right: 14px; }
+.dialog-close svg { width: 18px; height: 18px; }
+.dialog-icon { width: 38px; height: 38px; display: grid; place-items: center; margin-bottom: 16px; border-radius: 10px; color: #fca5a5; background: rgba(239, 68, 68, 0.1); }
+.dialog-icon svg { width: 21px; height: 21px; }
+.dialog-field { display: flex; flex-direction: column; gap: 7px; margin-top: 20px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }
+.dialog-field input { width: 100%; height: 43px; padding: 0 12px; border: 1px solid var(--border-card); border-radius: 9px; color: var(--text-primary); background: #0b0b11; font: inherit; outline: none; }
+.dialog-field input:focus { border-color: var(--border-accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 24px; }
 
 /* ─── Fade/transition helpers ────────────────────────────────────────────────── */
 @keyframes fade-in {

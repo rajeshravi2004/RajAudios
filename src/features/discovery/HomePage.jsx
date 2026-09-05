@@ -190,13 +190,6 @@ export function HomePage({ onOpenPlaylist }) {
 }
 
 function Section({ id, title, subtitle, items, type, context, onPlayTrack, onPlaylistClick, profile }) {
-  const scrollRef = useCallback(node => {
-    if (node) {
-      // Store reference for scroll buttons
-      node._sectionId = id
-    }
-  }, [id])
-
   if (!items?.length) return null
 
   const scroll = (dir) => {

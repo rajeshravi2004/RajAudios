@@ -3,8 +3,8 @@
  */
 
 import { useState } from 'react'
-import { PlayIcon, PauseIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/solid'
-import { HeartIcon, PlusCircleIcon, QueueListIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { PlayIcon, PauseIcon } from '@heroicons/react/24/solid'
+import { HeartIcon, QueueListIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
 import { usePlayer } from '../stores/playerStore.jsx'
 import { useLibrary } from '../stores/libraryStore.jsx'
@@ -17,7 +17,6 @@ export function TrackList({
   showViews = false,
   onPlay,
   onRemove,
-  contextId,
 }) {
   const { currentTrack, isPlaying, playTrack, addToQueue, togglePlayPause } = usePlayer()
   const { isFavorite, toggleFavorite } = useLibrary()
@@ -115,7 +114,16 @@ export function TrackList({
 
             {/* Track info */}
             <div className="flex items-center gap-3 min-w-0 flex-1"
-              onClick={() => handlePlay(track, index)}
+              onClick={() => handleTrackClick(track, index)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  handleTrackClick(track, index)
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`${isActive && isPlaying ? 'Pause' : 'Play'} ${track.title}`}
               style={{ cursor: 'pointer' }}
             >
               <img

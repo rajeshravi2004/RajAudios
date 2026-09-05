@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../../stores/authStore.jsx'
 import { useToastContext } from '../../components/ui/Toast.jsx'
+import { useDialog } from '../../components/ui/Dialog.jsx'
 
 const formatDate = (value) => value
   ? new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
@@ -16,6 +17,7 @@ const formatDate = (value) => value
 export function AdminPage() {
   const { session, isAdmin } = useAuth()
   const { toast } = useToastContext()
+  const { confirm: showConfirm } = useDialog()
   const [users, setUsers] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -61,7 +63,14 @@ export function AdminPage() {
   }, [search, users])
 
   const deleteUser = async (user) => {
-    if (user.isOwner || !confirm(`Delete ${user.email} and all associated data?`)) return
+    if (user.isOwner) return
+    const confirmed = await showConfirm({
+      title: 'Delete user account?',
+      message: `${user.email} and all associated profile and preference data will be permanently removed.`,
+      confirmLabel: 'Delete user',
+      tone: 'danger',
+    })
+    if (!confirmed) return
     setBusyUserId(user.id)
     try {
       await request({ method: 'DELETE', body: JSON.stringify({ userId: user.id }) })
