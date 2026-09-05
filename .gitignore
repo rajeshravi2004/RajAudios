@@ -13,6 +13,11 @@ dist-ssr
 *.local
 release
 .env
+test-results
+playwright-report
+supabase/.temp/
+/auth-page.png
+/settings-page.png
 
 # Editor directories and files
 .vscode/*

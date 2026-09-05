@@ -15,6 +15,7 @@ import {
   PlusIcon,
   ChevronDownIcon,
   BookmarkIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 import {
   HomeIcon as HomeSolid,
@@ -25,9 +26,11 @@ import {
   QueueListIcon as QueueSolid,
   ClockIcon as ClockSolid,
   Cog6ToothIcon as SettingsSolid,
+  ShieldCheckIcon as ShieldSolid,
 } from '@heroicons/react/24/solid'
 import { useLibrary } from '../stores/libraryStore.jsx'
 import { usePlayer } from '../stores/playerStore.jsx'
+import { useAuth } from '../stores/authStore.jsx'
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Home', icon: HomeIcon, activeIcon: HomeSolid },
@@ -44,6 +47,7 @@ const LIBRARY_ITEMS = [
 export function Sidebar({ currentView, onNavigate }) {
   const { playlists, favorites, createPlaylist } = useLibrary()
   const { currentTrack } = usePlayer()
+  const { user, profile, isAdmin } = useAuth()
   const [libraryExpanded, setLibraryExpanded] = useState(true)
 
   const NavButton = ({ item }) => {
@@ -204,6 +208,31 @@ export function Sidebar({ currentView, onNavigate }) {
         )}
         
         <div className="p-3 pt-0">
+          <button className="sidebar-account" onClick={() => onNavigate('settings')}>
+            {user && profile.avatarUrl ? (
+              <img src={profile.avatarUrl} alt="" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="sidebar-account-avatar">{user ? profile.name.slice(0, 1).toUpperCase() : 'G'}</span>
+            )}
+            <span className="sidebar-account-copy">
+              <strong>{user ? profile.name : 'Guest session'}</strong>
+              <span>{user ? profile.email : 'Sign in to sync'}</span>
+            </span>
+          </button>
+
+          {isAdmin && (
+            <button
+              className={`nav-item ${currentView === 'admin' ? 'active' : ''}`}
+              onClick={() => onNavigate('admin')}
+            >
+              {currentView === 'admin'
+                ? <ShieldSolid className="h-5 w-5 flex-shrink-0" />
+                : <ShieldCheckIcon className="h-5 w-5 flex-shrink-0" />
+              }
+              <span>User Admin</span>
+            </button>
+          )}
+
           <button
             className={`nav-item ${currentView === 'settings' ? 'active' : ''}`}
             onClick={() => onNavigate('settings')}

@@ -5,6 +5,8 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { settingsStorage } from '../utils/storage.js'
+import { supabase } from '../lib/supabaseClient.js'
+import { useAuth } from './authStore.jsx'
 
 const SettingsContext = createContext(null)
 
@@ -45,8 +47,10 @@ const DEFAULT_SETTINGS = {
 }
 
 export function SettingsProvider({ children }) {
+  const { user } = useAuth()
   const [settings, setSettingsState] = useState(DEFAULT_SETTINGS)
   const [loaded, setLoaded] = useState(false)
+  const [cloudStatus, setCloudStatus] = useState('local')
 
   // Load from storage on mount
   useEffect(() => {
@@ -56,21 +60,75 @@ export function SettingsProvider({ children }) {
     })
   }, [])
 
-  const updateSettings = useCallback(async (updates) => {
+  // Pull the signed-in user's preferences once local settings are available.
+  useEffect(() => {
+    if (!loaded || !user || !supabase) {
+      if (loaded && !user) setCloudStatus('local')
+      return
+    }
+
+    let active = true
+    setCloudStatus('syncing')
+    supabase
+      .from('user_preferences')
+      .select('settings')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(async ({ data, error }) => {
+        if (!active) return
+        if (error) {
+          console.warn('Cloud preferences are unavailable:', error.message)
+          setCloudStatus('error')
+          return
+        }
+        if (data?.settings) {
+          const merged = { ...DEFAULT_SETTINGS, ...data.settings }
+          setSettingsState(merged)
+          await settingsStorage.set(merged)
+        } else {
+          await supabase.from('user_preferences').upsert({
+            user_id: user.id,
+            settings,
+            updated_at: new Date().toISOString(),
+          })
+        }
+        if (active) setCloudStatus('synced')
+      })
+
+    return () => { active = false }
+  }, [loaded, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateSettings = useCallback((updates) => {
     setSettingsState(prev => {
       const next = { ...prev, ...updates }
-      settingsStorage.set(updates) // persist async
+      settingsStorage.set(next)
+      if (user && supabase) {
+        setCloudStatus('syncing')
+        supabase.from('user_preferences').upsert({
+          user_id: user.id,
+          settings: next,
+          updated_at: new Date().toISOString(),
+        }).then(({ error }) => setCloudStatus(error ? 'error' : 'synced'))
+      }
       return next
     })
-  }, [])
+  }, [user])
 
   const resetSettings = useCallback(async () => {
     await settingsStorage.set(DEFAULT_SETTINGS)
     setSettingsState(DEFAULT_SETTINGS)
-  }, [])
+    if (user && supabase) {
+      const { error } = await supabase.from('user_preferences').upsert({
+        user_id: user.id,
+        settings: DEFAULT_SETTINGS,
+        updated_at: new Date().toISOString(),
+      })
+      setCloudStatus(error ? 'error' : 'synced')
+    }
+  }, [user])
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSettings, resetSettings, loaded }}>
+    <SettingsContext.Provider value={{ settings, updateSettings, resetSettings, loaded, cloudStatus }}>
       {children}
     </SettingsContext.Provider>
   )

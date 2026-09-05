@@ -47,12 +47,12 @@ export function ErrorState({
       </p>
       {errorType === 'QUOTA_EXCEEDED' && (
         <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-          YouTube API daily quota exceeded. Music will resume tomorrow.
+          Open Settings to use a personal YouTube API key for this session.
         </p>
       )}
       {errorType === 'NO_API_KEY' && (
         <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-          Add YOUTUBE_API_KEY to your .env file and restart the app.
+          Open Settings to use a personal YouTube API key for this session.
         </p>
       )}
       {onRetry && (

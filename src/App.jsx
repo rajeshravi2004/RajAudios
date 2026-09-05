@@ -20,10 +20,13 @@ import { SearchPage } from './features/search/SearchPage.jsx'
 import { LibraryPage } from './features/library/LibraryPage.jsx'
 import { PlaylistDetail, UserPlaylistDetail } from './features/library/PlaylistDetail.jsx'
 import { SettingsPage } from './features/settings/SettingsPage.jsx'
+import { AuthGate } from './features/auth/AuthGate.jsx'
+import { AdminPage } from './features/admin/AdminPage.jsx'
 import { ToastProvider } from './components/ui/Toast.jsx'
 import { PlayerProvider, usePlayer } from './stores/playerStore.jsx'
 import { LibraryProvider, useLibrary } from './stores/libraryStore.jsx'
 import { SettingsProvider } from './stores/settingsStore.jsx'
+import { AuthProvider } from './stores/authStore.jsx'
 import { useYouTubePlayer } from './hooks/useYouTubePlayer.js'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js'
 import { migrateCookieData } from './utils/storage.js'
@@ -173,6 +176,8 @@ function AppShell() {
         )
       case 'settings':
         return <SettingsPage />
+      case 'admin':
+        return <AdminPage />
       default:
         return <HomePage onOpenPlaylist={handleOpenPlaylist} />
     }
@@ -263,14 +268,18 @@ function AppShell() {
 // ─── Root App with Providers ───────────────────────────────────────────────────
 export default function App() {
   return (
-    <SettingsProvider>
-      <LibraryProvider>
-        <PlayerProvider>
-          <ToastProvider>
-            <AppShell />
-          </ToastProvider>
-        </PlayerProvider>
-      </LibraryProvider>
-    </SettingsProvider>
+    <AuthProvider>
+      <AuthGate>
+        <SettingsProvider>
+          <LibraryProvider>
+            <PlayerProvider>
+              <ToastProvider>
+                <AppShell />
+              </ToastProvider>
+            </PlayerProvider>
+          </LibraryProvider>
+        </SettingsProvider>
+      </AuthGate>
+    </AuthProvider>
   )
 }

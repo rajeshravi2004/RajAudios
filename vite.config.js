@@ -20,7 +20,11 @@ export default defineConfig({
     assetsDir: 'assets',
     rollupOptions: {
       output: {
-        manualChunks: undefined
+        manualChunks(id) {
+          if (id.includes('node_modules/@supabase')) return 'supabase'
+          if (id.includes('node_modules/react')) return 'react-vendor'
+          return undefined
+        }
       }
     }
   }

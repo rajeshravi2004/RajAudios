@@ -1,260 +1,278 @@
-/**
- * SettingsPage.jsx — App settings
- */
-
 import { useState } from 'react'
-import { Cog6ToothIcon, TrashIcon, ArrowPathIcon, InformationCircleIcon } from '@heroicons/react/24/solid'
+import {
+  ArrowPathIcon,
+  ArrowRightOnRectangleIcon,
+  CheckCircleIcon,
+  CircleStackIcon,
+  CloudArrowUpIcon,
+  Cog6ToothIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  GlobeAltIcon,
+  KeyIcon,
+  ShieldCheckIcon,
+  SpeakerWaveIcon,
+  TrashIcon,
+  UserCircleIcon,
+} from '@heroicons/react/24/outline'
 import { useSettings, LANGUAGES } from '../../stores/settingsStore.jsx'
 import { useLibrary } from '../../stores/libraryStore.jsx'
+import { useAuth } from '../../stores/authStore.jsx'
+import { useToastContext } from '../../components/ui/Toast.jsx'
 import { cacheStorage } from '../../utils/storage.js'
+import {
+  clearSessionApiKey,
+  setSessionApiKey,
+  testYouTubeApiKey,
+  useSessionApiKey,
+} from '../../services/sessionApiKey.js'
 
-const SECTION = ({ title, children }) => (
-  <div className="mb-8">
-    <h2 className="text-lg font-bold mb-4 pb-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-      {title}
-    </h2>
-    <div className="space-y-4">{children}</div>
-  </div>
+const SectionCard = ({ icon: Icon, title, description, children, tone = 'default' }) => (
+  <section className={`settings-card settings-card-${tone}`}>
+    <header className="settings-card-header">
+      <div className="settings-card-icon"><Icon /></div>
+      <div>
+        <h2>{title}</h2>
+        <p>{description}</p>
+      </div>
+    </header>
+    <div className="settings-card-body">{children}</div>
+  </section>
 )
 
-const SETTING_ROW = ({ label, description, children }) => (
-  <div className="flex items-center justify-between gap-4 py-2">
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{label}</p>
-      {description && (
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{description}</p>
-      )}
+const SettingRow = ({ label, description, children }) => (
+  <div className="setting-row">
+    <div className="setting-copy">
+      <span>{label}</span>
+      {description && <p>{description}</p>}
     </div>
-    <div className="flex-shrink-0">{children}</div>
+    <div className="setting-control">{children}</div>
   </div>
 )
 
-const Toggle = ({ value, onChange, disabled = false }) => (
+const Toggle = ({ value, onChange }) => (
   <button
-    onClick={() => !disabled && onChange(!value)}
-    className="relative w-12 h-6 rounded-full transition-all duration-200 focus:outline-none"
-    style={{
-      background: value ? 'var(--accent)' : 'rgba(255,255,255,0.1)',
-      opacity: disabled ? 0.5 : 1,
-      cursor: disabled ? 'not-allowed' : 'pointer',
-    }}
+    type="button"
+    onClick={() => onChange(!value)}
+    className={`pro-toggle ${value ? 'is-on' : ''}`}
     role="switch"
     aria-checked={value}
-    disabled={disabled}
   >
-    <div
-      className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all duration-200"
-      style={{ left: value ? 'calc(100% - 22px)' : '2px', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }}
-    />
+    <span />
   </button>
 )
 
 const Select = ({ value, onChange, options }) => (
-  <select
-    value={value}
-    onChange={(e) => onChange(e.target.value)}
-    className="px-3 py-1.5 rounded-lg text-sm appearance-none cursor-pointer"
-    style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border-card)',
-      color: 'var(--text-primary)',
-      outline: 'none',
-    }}
-  >
-    {options.map(opt => (
-      <option key={opt.value} value={opt.value} style={{ background: 'var(--bg-card)' }}>
-        {opt.label}
-      </option>
-    ))}
+  <select className="pro-select" value={value} onChange={event => onChange(event.target.value)}>
+    {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
   </select>
 )
 
 export function SettingsPage() {
-  const { settings, updateSettings, resetSettings } = useSettings()
+  const { settings, updateSettings, resetSettings, cloudStatus } = useSettings()
   const { clearHistory } = useLibrary()
+  const { user, profile, isConfigured, signInWithGoogle, signOut } = useAuth()
+  const { toast } = useToastContext()
+  const activeApiKey = useSessionApiKey()
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [testingKey, setTestingKey] = useState(false)
   const [clearingCache, setClearingCache] = useState(false)
-  const [cacheClearedMsg, setCacheClearedMsg] = useState('')
+
+  const handleUsePersonalKey = async () => {
+    const candidate = apiKeyInput.trim()
+    if (!candidate) {
+      toast('Enter a YouTube Data API key first.', 'warning')
+      return
+    }
+
+    setTestingKey(true)
+    try {
+      const result = await testYouTubeApiKey(candidate)
+      if (!result.valid) {
+        toast(result.message || 'That API key could not be verified.', 'error')
+        return
+      }
+      setSessionApiKey(candidate)
+      setApiKeyInput('')
+      setShowApiKey(false)
+      await cacheStorage.clear()
+      toast('Personal API key is active for this session.', 'success')
+    } catch {
+      toast('Could not verify the key. Check your connection and try again.', 'error')
+    } finally {
+      setTestingKey(false)
+    }
+  }
+
+  const handleRemovePersonalKey = async () => {
+    clearSessionApiKey()
+    await cacheStorage.clear()
+    toast('Personal API key removed from memory.', 'info')
+  }
 
   const handleClearCache = async () => {
     setClearingCache(true)
-    try {
-      await cacheStorage.clear()
-      setCacheClearedMsg('Cache cleared!')
-      setTimeout(() => setCacheClearedMsg(''), 3000)
-    } catch (e) {
-      console.error('Clear cache error:', e)
-    } finally {
-      setClearingCache(false)
-    }
+    await cacheStorage.clear()
+    setClearingCache(false)
+    toast('Music discovery cache cleared.', 'success')
   }
 
-  const handleResetApp = () => {
-    if (confirm('Reset all app data? This will clear your history, cache, and settings.')) {
-      resetSettings()
-      clearHistory()
-      cacheStorage.clear()
-    }
+  const handleResetApp = async () => {
+    if (!confirm('Reset local history, settings, and cached music data?')) return
+    await resetSettings()
+    await clearHistory()
+    await cacheStorage.clear()
+    clearSessionApiKey()
+    toast('Local app data has been reset.', 'success')
   }
+
+  const syncLabel = {
+    synced: 'Preferences synced',
+    syncing: 'Syncing preferences',
+    error: 'Local preferences only',
+    local: 'Stored on this device',
+  }[cloudStatus]
 
   return (
     <div className="page-scroll fade-in">
-      <div className="page-content" style={{ maxWidth: '640px' }}>
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: 'var(--accent-subtle)', border: '1px solid var(--border-accent)' }}>
-            <Cog6ToothIcon className="h-6 w-6" style={{ color: 'var(--accent-bright)' }} />
-          </div>
+      <div className="settings-page">
+        <header className="settings-hero">
           <div>
-            <h1 className="text-2xl font-bold">Settings</h1>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Customize your Rajify experience</p>
+            <span className="eyebrow"><Cog6ToothIcon /> Account & preferences</span>
+            <h1>Settings</h1>
+            <p>Manage your listening experience, cloud profile, privacy, and API access.</p>
           </div>
+          <div className={`sync-pill sync-${cloudStatus}`}>
+            {user ? <CloudArrowUpIcon /> : <CircleStackIcon />}
+            <span>{syncLabel}</span>
+          </div>
+        </header>
+
+        <div className="settings-grid">
+          <SectionCard icon={UserCircleIcon} title="Account" description="Your identity and cloud connection">
+            {user ? (
+              <div className="account-profile">
+                {profile.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt="" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="account-avatar-fallback">{profile.name.slice(0, 1).toUpperCase()}</div>
+                )}
+                <div className="account-identity">
+                  <strong>{profile.name}</strong>
+                  <span>{profile.email}</span>
+                  <small><CheckCircleIcon /> Connected with Google</small>
+                </div>
+                <button className="secondary-button" onClick={signOut}>
+                  <ArrowRightOnRectangleIcon /> Sign out
+                </button>
+              </div>
+            ) : (
+              <div className="guest-account">
+                <div>
+                  <strong>Guest session</strong>
+                  <p>Sign in to sync preferences and keep a consistent profile across devices.</p>
+                </div>
+                <button className="primary-button" onClick={signInWithGoogle} disabled={!isConfigured}>
+                  Continue with Google
+                </button>
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard icon={KeyIcon} title="YouTube API access" description="Use your own quota when the shared quota is unavailable">
+            <div className="session-key-status">
+              <div className={`status-dot ${activeApiKey ? 'is-active' : ''}`} />
+              <div>
+                <strong>{activeApiKey ? 'Personal key active' : 'Using Rajify shared access'}</strong>
+                <p>{activeApiKey ? 'Requests use your key until this tab is refreshed or closed.' : 'Add a key only if shared access reaches its daily limit.'}</p>
+              </div>
+            </div>
+
+            {!activeApiKey ? (
+              <div className="api-key-form">
+                <label htmlFor="personal-youtube-key">Personal YouTube Data API key</label>
+                <div className="secret-input-wrap">
+                  <input
+                    id="personal-youtube-key"
+                    type={showApiKey ? 'text' : 'password'}
+                    value={apiKeyInput}
+                    onChange={event => setApiKeyInput(event.target.value)}
+                    placeholder="Paste key for this session"
+                    autoComplete="off"
+                    spellCheck="false"
+                  />
+                  <button type="button" onClick={() => setShowApiKey(value => !value)} aria-label={showApiKey ? 'Hide API key' : 'Show API key'}>
+                    {showApiKey ? <EyeSlashIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+                <div className="api-key-actions">
+                  <p><ShieldCheckIcon /> Kept in memory only. Never saved or synced.</p>
+                  <button className="primary-button" onClick={handleUsePersonalKey} disabled={testingKey}>
+                    {testingKey ? <ArrowPathIcon className="spin" /> : <KeyIcon />}
+                    {testingKey ? 'Verifying' : 'Use for session'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className="secondary-button danger-text" onClick={handleRemovePersonalKey}>Remove personal key</button>
+            )}
+          </SectionCard>
+
+          <SectionCard icon={SpeakerWaveIcon} title="Playback" description="Tune how Rajify behaves while you listen">
+            <SettingRow label="Autoplay" description="Continue with similar music when the queue ends">
+              <Toggle value={settings.autoplay} onChange={value => updateSettings({ autoplay: value })} />
+            </SettingRow>
+            <SettingRow label="Default volume" description={`${Math.round(settings.volume * 100)} percent`}>
+              <input type="range" min="0" max="1" step="0.05" value={settings.volume} onChange={event => updateSettings({ volume: Number(event.target.value) })} className="settings-volume" />
+            </SettingRow>
+          </SectionCard>
+
+          <SectionCard icon={GlobeAltIcon} title="Discovery" description="Control the language and quality of recommendations">
+            <SettingRow label="Music language" description="Primary language for discovery">
+              <Select value={settings.language} onChange={value => updateSettings({ language: value })} options={LANGUAGES.map(language => ({ value: language.value, label: language.label }))} />
+            </SettingRow>
+            <SettingRow label="Content filter" description="Reduce podcasts, reactions, and non-music results">
+              <Select
+                value={settings.contentFilterStrength}
+                onChange={value => updateSettings({ contentFilterStrength: value })}
+                options={[
+                  { value: 'off', label: 'Off' },
+                  { value: 'light', label: 'Light' },
+                  { value: 'moderate', label: 'Moderate' },
+                  { value: 'strict', label: 'Strict' },
+                ]}
+              />
+            </SettingRow>
+          </SectionCard>
+
+          <SectionCard icon={ShieldCheckIcon} title="Privacy" description="Choose what is used for your recommendations">
+            <SettingRow label="Listening history" description="Remember played tracks on this device">
+              <Toggle value={settings.saveHistory} onChange={value => updateSettings({ saveHistory: value })} />
+            </SettingRow>
+            <SettingRow label="Personalized discovery" description="Use listening signals to improve suggestions">
+              <Toggle value={settings.personalizedRecommendations} onChange={value => updateSettings({ personalizedRecommendations: value })} />
+            </SettingRow>
+            <button className="text-button" onClick={clearHistory}>Clear listening history</button>
+          </SectionCard>
+
+          <SectionCard icon={CircleStackIcon} title="Data controls" description="Refresh temporary data or reset this installation" tone="danger">
+            <div className="data-actions">
+              <button className="secondary-button" onClick={handleClearCache} disabled={clearingCache}>
+                <ArrowPathIcon className={clearingCache ? 'spin' : ''} />
+                {clearingCache ? 'Clearing cache' : 'Clear discovery cache'}
+              </button>
+              <button className="danger-button" onClick={handleResetApp}>
+                <TrashIcon /> Reset local data
+              </button>
+            </div>
+          </SectionCard>
         </div>
 
-        {/* Playback */}
-        <SECTION title="🎵 Playback">
-          <SETTING_ROW
-            label="Autoplay"
-            description="Automatically play similar music when your queue ends"
-          >
-            <Toggle
-              value={settings.autoplay}
-              onChange={(v) => updateSettings({ autoplay: v })}
-            />
-          </SETTING_ROW>
-          <SETTING_ROW
-            label="Default Volume"
-            description={`Current: ${Math.round(settings.volume * 100)}%`}
-          >
-            <input
-              type="range" min="0" max="1" step="0.05"
-              value={settings.volume}
-              onChange={(e) => updateSettings({ volume: parseFloat(e.target.value) })}
-              className="w-28"
-              style={{
-                background: `linear-gradient(to right, var(--accent-bright) ${settings.volume * 100}%, rgba(255,255,255,0.15) ${settings.volume * 100}%)`,
-              }}
-            />
-          </SETTING_ROW>
-        </SECTION>
-
-        {/* Content */}
-        <SECTION title="🌐 Content">
-          <SETTING_ROW
-            label="Default Language"
-            description="Primary language for music discovery"
-          >
-            <Select
-              value={settings.language}
-              onChange={(v) => updateSettings({ language: v })}
-              options={LANGUAGES.map(l => ({ value: l.value, label: `${l.flag} ${l.label}` }))}
-            />
-          </SETTING_ROW>
-
-          <SETTING_ROW
-            label="Content Quality Filter"
-            description="Filter non-music content from results (reactions, podcasts, etc.)"
-          >
-            <Select
-              value={settings.contentFilterStrength}
-              onChange={(v) => updateSettings({ contentFilterStrength: v })}
-              options={[
-                { value: 'off', label: 'Off — Show everything' },
-                { value: 'light', label: 'Light — Minimal filtering' },
-                { value: 'moderate', label: 'Moderate (Recommended)' },
-                { value: 'strict', label: 'Strict — Music only' },
-              ]}
-            />
-          </SETTING_ROW>
-        </SECTION>
-
-        {/* Privacy */}
-        <SECTION title="🔒 Privacy">
-          <SETTING_ROW
-            label="Save Listening History"
-            description="Track what you've listened to for better recommendations"
-          >
-            <Toggle
-              value={settings.saveHistory}
-              onChange={(v) => updateSettings({ saveHistory: v })}
-            />
-          </SETTING_ROW>
-          <SETTING_ROW
-            label="Personalized Recommendations"
-            description="Use your history to improve music suggestions"
-          >
-            <Toggle
-              value={settings.personalizedRecommendations}
-              onChange={(v) => updateSettings({ personalizedRecommendations: v })}
-            />
-          </SETTING_ROW>
-          <SETTING_ROW label="Clear Listening History" description="Remove all recently played tracks">
-            <button
-              onClick={() => clearHistory()}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium"
-              style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}
-            >
-              Clear History
-            </button>
-          </SETTING_ROW>
-        </SECTION>
-
-        {/* Data */}
-        <SECTION title="💾 Data">
-          <SETTING_ROW
-            label="Clear API Cache"
-            description={cacheClearedMsg || 'Refreshes all cached music data from YouTube'}
-          >
-            <button
-              onClick={handleClearCache}
-              disabled={clearingCache}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium"
-              style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-card)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <ArrowPathIcon className={`h-4 w-4 ${clearingCache ? 'animate-spin' : ''}`} />
-              {clearingCache ? 'Clearing...' : 'Clear Cache'}
-            </button>
-          </SETTING_ROW>
-          <SETTING_ROW
-            label="Reset App Data"
-            description="Clear all history, settings, and cache. Cannot be undone."
-          >
-            <button
-              onClick={handleResetApp}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium"
-              style={{
-                background: 'rgba(239,68,68,0.1)',
-                border: '1px solid rgba(239,68,68,0.2)',
-                color: '#f87171',
-              }}
-            >
-              <TrashIcon className="h-4 w-4" />
-              Reset All Data
-            </button>
-          </SETTING_ROW>
-        </SECTION>
-
-        {/* About */}
-        <SECTION title="ℹ️ About">
-          <div className="p-4 rounded-xl text-sm space-y-2"
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-card)', color: 'var(--text-muted)' }}>
-            <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Rajify — Music Discovery</p>
-            <p>A personalized music discovery application powered by the YouTube Data API v3.</p>
-            <p className="text-xs mt-2 p-2 rounded-lg" style={{ background: 'var(--bg-elevated)' }}>
-              <span className="font-medium" style={{ color: 'var(--text-accent)' }}>API Key Security: </span>
-              Your YouTube API key is stored securely in the Electron main process 
-              and is never exposed in the rendered JavaScript.
-            </p>
-            <p className="text-xs">
-              Content Quality Filter grades results by metadata signals — 
-              it does not make any copyright or legal claims about videos.
-            </p>
-          </div>
-        </SECTION>
+        <footer className="settings-footer">
+          <span>Rajify 1.0</span>
+          <span>Powered by YouTube Data API and Supabase</span>
+        </footer>
       </div>
     </div>
   )

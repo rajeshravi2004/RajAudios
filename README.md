@@ -1,126 +1,80 @@
-# Rajify - Spotify-like Music Player
+# Rajify
 
-A web and desktop music player built with React, Electron, and the YouTube API. It features a Spotify-like interface with playlists, shuffle, repeat, queue management, and more.
+A focused music discovery experience built with React, Electron, YouTube Data API, and Supabase.
 
-## Live App
+## Live app
 
 ### [Open Rajify](https://rajaudios.vercel.app)
 
-The web app is deployed on Vercel's free Hobby plan. YouTube API requests are handled by a serverless API route so the API keys are not included in the browser bundle.
+## Highlights
 
-## Features
+- Google OAuth with Supabase Auth
+- Cross-device preference sync for signed-in listeners
+- Owner-only user administration with server-side authorization
+- Multilingual music discovery, search, playlists, likes, history, and queue management
+- Audio and video playback modes powered by the YouTube player
+- Session-only personal YouTube API key fallback
+- Installable Electron desktop build
 
-- 🎵 **Playlist Management**: Browse and play YouTube playlists
-- 🔀 **Shuffle**: Randomize track playback
-- 🔁 **Repeat**: Repeat off, all, or single track
-- ❤️ **Favorites**: Save your favorite tracks
-- 📋 **Queue**: Add tracks to queue for later playback
-- 💾 **Cookie Storage**: All playlists, favorites, and settings saved in cookies
-- 🎨 **Spotify-like UI**: Modern, dark-themed interface
-- 🖥️ **Desktop App**: Built as Windows EXE using Electron
+## Security model
 
-## Prerequisites
+- Shared YouTube credentials stay in Vercel server environment variables.
+- Personal YouTube API keys are validated and kept only in JavaScript memory. They are never written to localStorage, sessionStorage, cookies, IndexedDB, Supabase, or Git.
+- Admin endpoints verify the current Supabase access token on every request.
+- Only the configured owner email can list or delete users.
+- The owner account cannot delete itself and is protected during bulk deletion.
+- Supabase Row Level Security limits profile and preference rows to their owner.
 
-- Node.js (v18 or higher)
-- npm or yarn
-- YouTube API Key ([Get one here](https://console.cloud.google.com/))
+## Architecture
 
-## Setup
+| Layer | Technology | Responsibility |
+| --- | --- | --- |
+| Web UI | React 19 + Vite | Discovery, library, playback, settings |
+| Authentication | Supabase Auth + Google OAuth | Sessions and account identity |
+| Database | Supabase Postgres | Profiles and synced preferences |
+| Server API | Vercel Functions | Protected YouTube proxy and owner administration |
+| Desktop | Electron | Native Windows application |
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd RajAudios
-   ```
+## Local development
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   
-   Create a `.env` file in the root directory:
-   ```
-   YOUTUBE_API_KEYS=your_youtube_api_key_here
-   ```
-
-## Development
-
-### Run as Web App
 ```bash
-npm run dev
+npm install
 ```
 
-### Run as Electron App (Development)
+Copy `.env.example` to `.env` and configure the required values. Use the Supabase project URL and publishable key in the browser; never expose the Supabase secret key with a `VITE_` prefix.
+
+For the complete web stack, including Vercel API functions:
+
+```bash
+vercel dev
+```
+
+For the Electron development build:
+
 ```bash
 npm run electron:dev
 ```
 
-This will start the Vite dev server and launch the Electron app.
+## Supabase setup
 
-## Building for Production
+Apply the included schema migration:
 
-### Build Web Version
 ```bash
-npm run build
+supabase link --project-ref <project-ref>
+supabase db push
 ```
 
-### Build Windows EXE
+Enable Google in Supabase Authentication providers, add the production site URL to the redirect allow list, and configure the Google OAuth client ID and secret in the Supabase dashboard.
+
+## Available scripts
+
 ```bash
-npm run electron:build:win
-```
-
-The EXE installer will be created in the `release` folder.
-
-## Usage
-
-1. **Search Playlists**: Use the search bar to find playlists by language and genre
-2. **Select Language**: Choose between Tamil or English music
-3. **Play Playlist**: Click on any playlist to view tracks, then click "Play All" or individual tracks
-4. **Control Playback**: 
-   - Use shuffle to randomize tracks
-   - Use repeat for off/all/one modes
-   - Add tracks to queue for later
-   - Save playlists for quick access
-5. **Manage Library**: 
-   - Save playlists to your library
-   - View recently played playlists
-   - Mark tracks as favorites
-
-## Data Storage
-
-All data is stored in browser cookies:
-- Playlists and tracks
-- Favorites
-- Playback settings (shuffle, repeat, volume)
-- Queue
-- Recent playlists
-
-## Technologies Used
-
-- **React 19**: UI framework
-- **Vite**: Build tool and dev server
-- **Electron**: Desktop app framework
-- **Tailwind CSS**: Styling
-- **YouTube API**: Music source
-- **js-cookie**: Cookie management
-- **Axios**: HTTP client
-
-## Project Structure
-
-```
-RajAudios/
-├── electron/          # Electron main process files
-│   ├── main.js       # Main Electron process
-│   └── preload.js    # Preload script
-├── src/
-│   ├── App.jsx       # Main application component
-│   ├── utils/
-│   │   └── cookieManager.js  # Cookie management utilities
-│   └── ...
-├── public/           # Static assets
-└── dist/             # Build output
+npm run dev                 # Vite frontend
+npm run build               # Production web build
+npm run lint                # ESLint checks
+npm run test:e2e            # Playwright browser smoke tests
+npm run electron:dev        # Electron development
+npm run electron:build:win  # Windows installer
 ```
 
 ## License

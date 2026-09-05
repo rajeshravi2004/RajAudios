@@ -12,6 +12,7 @@ import { useSettings, LANGUAGES } from '../../stores/settingsStore.jsx'
 import { useLibrary } from '../../stores/libraryStore.jsx'
 import { getHomeSections, getContinueListening } from '../../services/discoveryService.js'
 import { generateExplanation, buildProfile } from '../../services/recommendationEngine.js'
+import { useAuth } from '../../stores/authStore.jsx'
 
 export function HomePage({ onOpenPlaylist }) {
   const [sections, setSections] = useState([])
@@ -22,6 +23,7 @@ export function HomePage({ onOpenPlaylist }) {
   const { settings, updateSettings } = useSettings()
   const { playTrack } = usePlayer()
   const { history } = useLibrary()
+  const { user, profile: accountProfile } = useAuth()
   const [profile, setProfile] = useState(null)
 
   const loadHome = useCallback(async (lang = settings.language) => {
@@ -81,8 +83,8 @@ export function HomePage({ onOpenPlaylist }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold mb-1">Good
-              {' '}{getGreeting()}
+            <h1 className="text-3xl font-bold mb-1">Good {getGreeting()}
+              {user ? `, ${accountProfile.name.split(' ')[0]}` : ''}
             </h1>
             <p style={{ color: 'var(--text-muted)' }}>
               Discover music personalized for you

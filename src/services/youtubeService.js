@@ -10,6 +10,7 @@
 
 import { cacheStorage } from '../utils/storage.js'
 import { getBestThumbnail, parseISO8601Duration, decodeHtml } from '../utils/formatters.js'
+import { getSessionApiKey } from './sessionApiKey.js'
 
 // ─── IPC bridge / fallback ─────────────────────────────────────────────────────
 const isElectron = () => typeof window !== 'undefined' && !!window.electronAPI?.youtube
@@ -17,57 +18,68 @@ const isElectron = () => typeof window !== 'undefined' && !!window.electronAPI?.
 const ytapi = {
   search: (params) => {
     const fullParams = { part: 'snippet', ...params }
-    if (isElectron()) return window.electronAPI.youtube.search(fullParams)
+    if (isElectron() && !getSessionApiKey()) return window.electronAPI.youtube.search(fullParams)
     return browserFetch('search', fullParams)
   },
   getVideos: (params) => {
     const idVal = Array.isArray(params?.ids) ? params.ids.join(',') : (params?.id || params?.ids || '')
     const fullParams = { part: 'snippet,contentDetails,statistics', ...params, id: idVal }
     delete fullParams.ids
-    if (isElectron()) return window.electronAPI.youtube.getVideos(fullParams)
+    if (isElectron() && !getSessionApiKey()) return window.electronAPI.youtube.getVideos(fullParams)
     return browserFetch('videos', fullParams)
   },
   getPlaylistItems: (params) => {
     const fullParams = { part: 'snippet,contentDetails', ...params }
-    if (isElectron()) return window.electronAPI.youtube.getPlaylistItems(fullParams)
+    if (isElectron() && !getSessionApiKey()) return window.electronAPI.youtube.getPlaylistItems(fullParams)
     return browserFetch('playlistItems', fullParams)
   },
   getPlaylists: (params) => {
     const idVal = Array.isArray(params?.ids) ? params.ids.join(',') : (params?.id || params?.ids || '')
     const fullParams = { part: 'snippet,contentDetails', ...params, id: idVal }
     delete fullParams.ids
-    if (isElectron()) return window.electronAPI.youtube.getPlaylists(fullParams)
+    if (isElectron() && !getSessionApiKey()) return window.electronAPI.youtube.getPlaylists(fullParams)
     return browserFetch('playlists', fullParams)
   },
   searchPlaylists: (params) => {
     const fullParams = { part: 'snippet', type: 'playlist', ...params }
-    if (isElectron()) return window.electronAPI.youtube.searchPlaylists(fullParams)
+    if (isElectron() && !getSessionApiKey()) return window.electronAPI.youtube.searchPlaylists(fullParams)
     return browserFetch('search', fullParams)
   },
   getChannels: (params) => {
     const idVal = Array.isArray(params?.ids) ? params.ids.join(',') : (params?.id || params?.ids || '')
     const fullParams = { part: 'snippet,statistics', ...params, id: idVal }
     delete fullParams.ids
-    if (isElectron()) return window.electronAPI.youtube.getChannels(fullParams)
+    if (isElectron() && !getSessionApiKey()) return window.electronAPI.youtube.getChannels(fullParams)
     return browserFetch('channels', fullParams)
   },
   getTrending: (params) => {
     const fullParams = { part: 'snippet,contentDetails,statistics', chart: 'mostPopular', ...params }
-    if (isElectron()) return window.electronAPI.youtube.getTrending(fullParams)
+    if (isElectron() && !getSessionApiKey()) return window.electronAPI.youtube.getTrending(fullParams)
     return browserFetch('videos', fullParams)
   },
 }
 
 const browserFetch = async (endpoint, params) => {
-  const url = new URL('/api/youtube', window.location.origin)
-  url.searchParams.set('endpoint', endpoint)
+  const personalApiKey = getSessionApiKey()
+  const url = personalApiKey
+    ? new URL(`https://www.googleapis.com/youtube/v3/${endpoint}`)
+    : new URL('/api/youtube', window.location.origin)
+  if (!personalApiKey) url.searchParams.set('endpoint', endpoint)
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null) url.searchParams.set(key, String(value))
   }
 
   try {
-    const response = await fetch(url)
-    return await response.json()
+    const response = await fetch(url, personalApiKey
+      ? { headers: { 'x-goog-api-key': personalApiKey } }
+      : undefined)
+    const data = await response.json()
+    if (response.ok) return data
+    const reason = data?.error?.errors?.[0]?.reason
+    if (response.status === 403 && ['quotaExceeded', 'dailyLimitExceeded', 'rateLimitExceeded', 'userRateLimitExceeded'].includes(reason)) {
+      return { error: 'QUOTA_EXCEEDED', message: 'This YouTube API key has reached its quota.' }
+    }
+    return { error: 'API_ERROR', message: data?.error?.message || `YouTube returned HTTP ${response.status}.` }
   } catch (error) {
     return { error: 'NETWORK_ERROR', message: error.message }
   }
