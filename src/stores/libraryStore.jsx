@@ -3,7 +3,7 @@
  * Persisted to IndexedDB
  */
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { favoritesStorage, playlistStorage, historyStorage } from '../utils/storage.js'
 import { enrichTracks } from '../services/youtubeService.js'
 
@@ -13,6 +13,7 @@ export function LibraryProvider({ children }) {
   const [favorites, setFavorites] = useState([]) // Array of track objects
   const [playlists, setPlaylists] = useState([]) // User-created playlists
   const [history, setHistory] = useState([])     // Recently played tracks
+  const historyOperationRef = useRef(Promise.resolve())
 
   // Load all library data on mount
   useEffect(() => {
@@ -23,22 +24,31 @@ export function LibraryProvider({ children }) {
     ]).then(async ([favs, lists, hist]) => {
       const initialFavs = favs || []
       const initialLists = lists || []
+      const storedHistory = hist || []
+      const initialHistory = storedHistory.slice(0, 100)
       setFavorites(initialFavs)
       setPlaylists(initialLists)
-      setHistory((hist || []).slice(0, 100))
+      setHistory(initialHistory)
 
       // Auto-enrich any favorites missing metadata
-      if (initialFavs.some(f => !f.title || f.title.startsWith('Track ') || f.channel === 'Unknown Artist')) {
+      if (initialFavs.some(needsTrackEnrichment)) {
         const enrichedFavs = await enrichTracks(initialFavs)
         setFavorites(enrichedFavs)
         favoritesStorage.save(enrichedFavs).catch(() => {})
+      }
+
+      // Backfill duration and playback metadata for existing history entries.
+      if (initialHistory.some(needsTrackEnrichment)) {
+        const enrichedHistory = await enrichTracks(initialHistory)
+        setHistory(enrichedHistory)
+        historyStorage.save([...enrichedHistory, ...storedHistory.slice(100)]).catch(() => {})
       }
 
       // Auto-enrich any playlist tracks missing metadata
       let listsChanged = false
       const enrichedLists = await Promise.all(
         initialLists.map(async pl => {
-          if (pl.tracks?.some(t => !t.title || t.title.startsWith('Track ') || t.channel === 'Unknown Artist')) {
+          if (pl.tracks?.some(needsTrackEnrichment)) {
             listsChanged = true
             const enriched = await enrichTracks(pl.tracks)
             return { ...pl, tracks: enriched, thumbnail: pl.thumbnail || enriched[0]?.thumbnail }
@@ -131,15 +141,20 @@ export function LibraryProvider({ children }) {
 
   // ── History ─────────────────────────────────────────────────────────────────
   const addToHistory = useCallback(async (track, completionPct = 0) => {
-    await historyStorage.addEntry(track, completionPct)
-    // Refresh local state with updated history
-    const updated = await historyStorage.getAll()
-    setHistory((updated || []).slice(0, 100))
+    historyOperationRef.current = historyOperationRef.current.then(async () => {
+      await historyStorage.addEntry(track, completionPct)
+      const updated = await historyStorage.getAll()
+      setHistory((updated || []).slice(0, 100))
+    })
+    await historyOperationRef.current
   }, [])
 
   const clearHistory = useCallback(async () => {
-    await historyStorage.clear()
-    setHistory([])
+    historyOperationRef.current = historyOperationRef.current.then(async () => {
+      await historyStorage.clear()
+      setHistory([])
+    })
+    await historyOperationRef.current
   }, [])
 
   const getRecentlyPlayed = useCallback(() => {
@@ -170,6 +185,15 @@ export function LibraryProvider({ children }) {
     </LibraryContext.Provider>
   )
 }
+
+const needsTrackEnrichment = (track) => (
+  !track?.title
+  || track.title.startsWith('Track ')
+  || track.channel === 'Unknown Artist'
+  || !track.thumbnail
+  || !track.durationSec
+  || track.embeddable == null
+)
 
 export const useLibrary = () => {
   const ctx = useContext(LibraryContext)

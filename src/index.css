@@ -480,6 +480,25 @@ input[type="range"]::-moz-range-thumb {
 .dialog-field input:focus { border-color: var(--border-accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 24px; }
 
+/* The fullscreen target is the real YouTube player, not the stage placeholder. */
+#yt-player-container:fullscreen {
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  aspect-ratio: auto !important;
+  transform: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: #000;
+}
+
+#yt-player-container:fullscreen iframe {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* ─── Fade/transition helpers ────────────────────────────────────────────────── */
 @keyframes fade-in {
   from { opacity: 0; }

@@ -9,12 +9,14 @@ import { searchVideos, searchPlaylists, getTrendingMusic } from './youtubeServic
 import { filterTracks, rankTracks } from './contentFilter.js'
 import { historyStorage } from '../utils/storage.js'
 
+const CURRENT_YEAR = new Date().getFullYear()
+
 const LANGUAGE_QUERIES = {
   tamil: {
     label: 'Tamil',
     queries: {
-      trending: 'trending tamil songs 2025',
-      new: 'new tamil songs 2025 official audio',
+      trending: `trending tamil songs ${CURRENT_YEAR}`,
+      new: `new tamil songs ${CURRENT_YEAR} official audio`,
       popular: 'popular tamil songs official',
       playlists: 'best tamil music playlists',
     },
@@ -23,8 +25,8 @@ const LANGUAGE_QUERIES = {
   hindi: {
     label: 'Hindi',
     queries: {
-      trending: 'trending hindi songs 2025',
-      new: 'new hindi songs 2025 official audio',
+      trending: `trending hindi songs ${CURRENT_YEAR}`,
+      new: `new hindi songs ${CURRENT_YEAR} official audio`,
       popular: 'popular bollywood songs',
       playlists: 'bollywood music playlists',
     },
@@ -33,18 +35,18 @@ const LANGUAGE_QUERIES = {
   english: {
     label: 'English',
     queries: {
-      trending: 'trending english songs 2025',
-      new: 'new english songs 2025 official audio',
+      trending: `trending english songs ${CURRENT_YEAR}`,
+      new: `new english songs ${CURRENT_YEAR} official audio`,
       popular: 'top english songs official music video',
-      playlists: 'english music playlists 2025',
+      playlists: `english music playlists ${CURRENT_YEAR}`,
     },
     region: 'US',
   },
   telugu: {
     label: 'Telugu',
     queries: {
-      trending: 'trending telugu songs 2025',
-      new: 'new telugu songs 2025 official',
+      trending: `trending telugu songs ${CURRENT_YEAR}`,
+      new: `new telugu songs ${CURRENT_YEAR} official`,
       popular: 'popular telugu songs',
       playlists: 'telugu music playlists',
     },
@@ -53,8 +55,8 @@ const LANGUAGE_QUERIES = {
   malayalam: {
     label: 'Malayalam',
     queries: {
-      trending: 'trending malayalam songs 2025',
-      new: 'new malayalam songs 2025 official',
+      trending: `trending malayalam songs ${CURRENT_YEAR}`,
+      new: `new malayalam songs ${CURRENT_YEAR} official`,
       popular: 'popular malayalam songs',
       playlists: 'malayalam music playlists',
     },
@@ -63,8 +65,8 @@ const LANGUAGE_QUERIES = {
   kannada: {
     label: 'Kannada',
     queries: {
-      trending: 'trending kannada songs 2025',
-      new: 'new kannada songs 2025',
+      trending: `trending kannada songs ${CURRENT_YEAR}`,
+      new: `new kannada songs ${CURRENT_YEAR}`,
       popular: 'popular kannada songs',
       playlists: 'kannada music playlists',
     },
@@ -73,18 +75,18 @@ const LANGUAGE_QUERIES = {
   korean: {
     label: 'Korean (K-Pop)',
     queries: {
-      trending: 'trending kpop songs 2025',
-      new: 'new kpop official music video 2025',
+      trending: `trending kpop songs ${CURRENT_YEAR}`,
+      new: `new kpop official music video ${CURRENT_YEAR}`,
       popular: 'popular kpop songs',
-      playlists: 'kpop playlist 2025',
+      playlists: `kpop playlist ${CURRENT_YEAR}`,
     },
     region: 'KR',
   },
   japanese: {
     label: 'Japanese',
     queries: {
-      trending: 'trending japanese songs 2025',
-      new: 'new japanese music official 2025',
+      trending: `trending japanese songs ${CURRENT_YEAR}`,
+      new: `new japanese music official ${CURRENT_YEAR}`,
       popular: 'popular japanese songs',
       playlists: 'japanese music playlist',
     },
@@ -93,8 +95,8 @@ const LANGUAGE_QUERIES = {
   spanish: {
     label: 'Spanish',
     queries: {
-      trending: 'trending spanish songs 2025',
-      new: 'nuevas canciones 2025 official audio',
+      trending: `trending spanish songs ${CURRENT_YEAR}`,
+      new: `nuevas canciones ${CURRENT_YEAR} official audio`,
       popular: 'popular spanish songs',
       playlists: 'musica latina playlist',
     },
@@ -103,8 +105,8 @@ const LANGUAGE_QUERIES = {
   bengali: {
     label: 'Bengali',
     queries: {
-      trending: 'trending bengali songs 2025',
-      new: 'new bengali songs 2025 official',
+      trending: `trending bengali songs ${CURRENT_YEAR}`,
+      new: `new bengali songs ${CURRENT_YEAR} official`,
       popular: 'popular bengali songs',
       playlists: 'bengali music playlists',
     },
@@ -113,8 +115,8 @@ const LANGUAGE_QUERIES = {
   marathi: {
     label: 'Marathi',
     queries: {
-      trending: 'trending marathi songs 2025',
-      new: 'new marathi songs 2025 official',
+      trending: `trending marathi songs ${CURRENT_YEAR}`,
+      new: `new marathi songs ${CURRENT_YEAR} official`,
       popular: 'popular marathi songs',
       playlists: 'marathi music playlists',
     },
@@ -123,8 +125,8 @@ const LANGUAGE_QUERIES = {
   punjabi: {
     label: 'Punjabi',
     queries: {
-      trending: 'trending punjabi songs 2025',
-      new: 'new punjabi songs 2025 official',
+      trending: `trending punjabi songs ${CURRENT_YEAR}`,
+      new: `new punjabi songs ${CURRENT_YEAR} official`,
       popular: 'popular punjabi songs',
       playlists: 'punjabi music playlists',
     },
@@ -136,8 +138,8 @@ const LANGUAGE_QUERIES = {
 const DEFAULT_QUERIES = (lang) => ({
   label: lang.charAt(0).toUpperCase() + lang.slice(1),
   queries: {
-    trending: `trending ${lang} songs 2025`,
-    new: `new ${lang} songs 2025 official`,
+    trending: `trending ${lang} songs ${CURRENT_YEAR}`,
+    new: `new ${lang} songs ${CURRENT_YEAR} official`,
     popular: `popular ${lang} songs official`,
     playlists: `${lang} music playlists`,
   },

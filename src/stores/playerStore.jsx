@@ -8,6 +8,7 @@
 import { createContext, useContext, useReducer, useRef, useCallback, useEffect } from 'react'
 import { shuffleArray } from '../utils/formatters.js'
 import { queueStorage } from '../utils/storage.js'
+import { useSettings } from './settingsStore.jsx'
 
 const PlayerContext = createContext(null)
 
@@ -148,13 +149,31 @@ function playerReducer(state, action) {
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function PlayerProvider({ children }) {
+  const { settings, loaded: settingsLoaded } = useSettings()
   const [state, dispatch] = useReducer(playerReducer, initialState)
   const playerRef = useRef(null)  // YouTube IFrame player instance
   const stateRef = useRef(state)
   const progressIntervalRef = useRef(null)
+  const playbackRequestRef = useRef(0)
+  const settingsRef = useRef(settings)
 
   // Keep stateRef in sync for use in callbacks (avoids stale closure issues)
   useEffect(() => { stateRef.current = state }, [state])
+  useEffect(() => { settingsRef.current = settings }, [settings])
+
+  // Apply persisted playback preferences once settings have loaded, and keep
+  // live Settings-page changes connected to the actual player.
+  useEffect(() => {
+    if (!settingsLoaded) return
+    dispatch({ type: 'SET_VOLUME', value: settings.volume })
+    dispatch({ type: 'SET_REPEAT', value: settings.repeat })
+    if (stateRef.current.shuffle !== settings.shuffle) {
+      dispatch({ type: 'SET_SHUFFLE', value: settings.shuffle })
+    }
+    if (playerRef.current?.setVolume) {
+      try { playerRef.current.setVolume(settings.volume * 100) } catch { /* player may not be ready */ }
+    }
+  }, [settingsLoaded, settings.volume, settings.repeat, settings.shuffle])
 
   // Load persisted queue on mount
   useEffect(() => {
@@ -192,33 +211,54 @@ export function PlayerProvider({ children }) {
     return () => clearInterval(progressIntervalRef.current)
   }, [])
 
+  // Wait briefly for the iframe API, cancel superseded requests, and fail
+  // visibly instead of retrying forever when YouTube cannot initialize.
+  const startPlayback = useCallback((track) => {
+    const requestId = ++playbackRequestRef.current
+    let attempts = 0
+
+    if (!track?.id) {
+      dispatch({ type: 'SET_ERROR', error: 'This track has no playable video.' })
+      return
+    }
+    if (track.embeddable === false) {
+      dispatch({ type: 'SET_ERROR', error: 'This video is not available for playback outside YouTube.' })
+      return
+    }
+
+    const load = () => {
+      if (requestId !== playbackRequestRef.current) return
+      const player = playerRef.current
+      if (!player?.loadVideoById) {
+        attempts += 1
+        if (attempts < 50) {
+          setTimeout(load, 200)
+        } else {
+          dispatch({ type: 'SET_ERROR', error: 'The YouTube player could not start. Check your connection and try again.' })
+        }
+        return
+      }
+
+      try {
+        player.loadVideoById(track.id)
+        player.playVideo?.()
+      } catch (error) {
+        dispatch({ type: 'SET_ERROR', error: 'Failed to play this track. Please try another one.' })
+        console.error('startPlayback error:', error)
+      }
+    }
+
+    load()
+  }, [])
+
   // ── Core play action ─────────────────────────────────────────────────────────
   const playTrackAtIndex = useCallback((index) => {
     const { contextTracks } = stateRef.current
     if (index < 0 || index >= contextTracks.length) return
     const track = contextTracks[index]
     dispatch({ type: 'SET_TRACK', track, index })
-
-    const doPlay = () => {
-      const player = playerRef.current
-      if (!player) {
-        setTimeout(doPlay, 200)
-        return
-      }
-      try {
-        if (player.loadVideoById) {
-          player.loadVideoById(track.id)
-          setTimeout(() => {
-            try { player.playVideo() } catch { /* ignore */ }
-          }, 100)
-        }
-      } catch (e) {
-        dispatch({ type: 'SET_ERROR', error: 'Failed to play track. Please try again.' })
-        console.error('playTrackAtIndex error:', e)
-      }
-    }
-    doPlay()
-  }, [])
+    startPlayback(track)
+  }, [startPlayback])
 
   const playTrack = useCallback((track, contextTracks = [], startIndex = null) => {
     // If context tracks provided, update context first
@@ -230,26 +270,8 @@ export function PlayerProvider({ children }) {
       dispatch({ type: 'SET_TRACK', track })
     }
 
-    const doPlay = () => {
-      const player = playerRef.current
-      if (!player) {
-        setTimeout(doPlay, 200)
-        return
-      }
-      try {
-        if (player.loadVideoById) {
-          player.loadVideoById(track.id)
-          setTimeout(() => {
-            try { player.playVideo() } catch { /* ignore */ }
-          }, 100)
-        }
-      } catch (e) {
-        dispatch({ type: 'SET_ERROR', error: 'Failed to play track. Please try again.' })
-        console.error('playTrack error:', e)
-      }
-    }
-    doPlay()
-  }, [])
+    startPlayback(track)
+  }, [startPlayback])
 
   const playNext = useCallback(() => {
     const { queue, currentIndex, contextTracks, repeat } = stateRef.current
@@ -341,6 +363,7 @@ export function PlayerProvider({ children }) {
       playTrack(next)
       return
     }
+    if (settingsRef.current.autoplay === false) return
     if (currentIndex < contextTracks.length - 1) {
       playTrackAtIndex(currentIndex + 1)
     } else if (repeat === 'all') {

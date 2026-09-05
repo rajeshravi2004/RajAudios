@@ -71,8 +71,8 @@ export function useYouTubePlayer() {
           width: '100%',
           playerVars: {
             autoplay: 0,
-            controls: 0,
-            disablekb: 1,
+            controls: 1,
+            disablekb: 0,
             enablejsapi: 1,
             playsinline: 1,
             origin,
@@ -121,6 +121,7 @@ export function useYouTubePlayer() {
               
               // For 101/150, try playing next automatically
               if (event.data === 101 || event.data === 150) {
+                setError('This video cannot be played outside YouTube. Trying the next track...')
                 handleTrackEnd()
               } else {
                 setError(msg)

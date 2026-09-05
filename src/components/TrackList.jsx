@@ -187,7 +187,7 @@ export function TrackList({
             {/* Duration */}
             {showDuration && (
               <span className="text-xs text-right flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
-                {track.durationSec > 0 ? formatDuration(track.durationSec) : '—'}
+                {track.isLive ? 'LIVE' : (track.durationSec > 0 ? formatDuration(track.durationSec) : '—')}
               </span>
             )}
           </div>

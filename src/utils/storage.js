@@ -210,6 +210,13 @@ export const historyStorage = {
       console.error('historyStorage.addEntry error:', e)
     }
   },
+  save: async (history) => {
+    try {
+      await idb.set(STORES.history, 'play_history', (history || []).slice(0, MAX_HISTORY))
+    } catch (e) {
+      console.error('historyStorage.save error:', e)
+    }
+  },
   clear: async () => {
     try {
       await idb.set(STORES.history, 'play_history', [])

@@ -23,7 +23,7 @@ const ytapi = {
   },
   getVideos: (params) => {
     const idVal = Array.isArray(params?.ids) ? params.ids.join(',') : (params?.id || params?.ids || '')
-    const fullParams = { part: 'snippet,contentDetails,statistics', ...params, id: idVal }
+    const fullParams = { part: 'snippet,contentDetails,statistics,status', ...params, id: idVal }
     delete fullParams.ids
     if (isElectron() && !getSessionApiKey()) return window.electronAPI.youtube.getVideos(fullParams)
     return browserFetch('videos', fullParams)
@@ -53,7 +53,7 @@ const ytapi = {
     return browserFetch('channels', fullParams)
   },
   getTrending: (params) => {
-    const fullParams = { part: 'snippet,contentDetails,statistics', chart: 'mostPopular', ...params }
+    const fullParams = { part: 'snippet,contentDetails,statistics,status', chart: 'mostPopular', ...params }
     if (isElectron() && !getSessionApiKey()) return window.electronAPI.youtube.getTrending(fullParams)
     return browserFetch('videos', fullParams)
   },
@@ -153,6 +153,7 @@ export const normalizeVideoItem = (item, sourcePlaylistId = null) => {
     duration: durationSec, // alias
     playlistId: sourcePlaylistId || item.playlistId || null,
     isLive: snippet.liveBroadcastContent === 'live' || item.isLive || false,
+    embeddable: item.status?.embeddable ?? item.embeddable ?? null,
   }
 }
 
@@ -234,8 +235,11 @@ export const searchVideos = async ({ q, maxResults = 20, pageToken, regionCode }
   )
   if (isAPIError(data)) return { error: getErrorMessage(data), items: [], nextPageToken: null }
   
+  const basicItems = (data.items || []).map(item => normalizeVideoItem(item)).filter(Boolean)
+  const enrichedItems = await enrichTracks(basicItems)
+
   return {
-    items: (data.items || []).map(item => normalizeVideoItem(item)),
+    items: enrichedItems.filter(item => item.embeddable !== false),
     nextPageToken: data.nextPageToken || null,
     totalResults: data.pageInfo?.totalResults || 0,
   }
@@ -247,10 +251,11 @@ export const searchVideos = async ({ q, maxResults = 20, pageToken, regionCode }
 export const getVideoDetails = async (ids) => {
   if (!ids || ids.length === 0) return []
   const idList = Array.isArray(ids) ? ids.slice(0, 50) : [ids]
-  const cacheKey = `videos:${idList.sort().join(',')}`
+  // Versioned so older cached responses without status/duration are not reused.
+  const cacheKey = `videos:v2:${idList.sort().join(',')}`
   
   const { data } = await deduplicatedRequest(cacheKey, 'video', () =>
-    ytapi.getVideos({ id: idList.join(','), part: 'snippet,contentDetails,statistics' })
+    ytapi.getVideos({ id: idList.join(','), part: 'snippet,contentDetails,statistics,status' })
   )
   if (isAPIError(data)) return []
   return (data.items || []).map(normalizeVideoItem)
@@ -264,17 +269,30 @@ export const enrichTracks = async (tracks) => {
   
   const normalized = tracks.map(t => {
     if (typeof t === 'string') return { id: t }
-    return normalizeVideoItem(t) || { id: t?.id }
+    const normalizedTrack = normalizeVideoItem(t)
+    return normalizedTrack ? { ...t, ...normalizedTrack } : { ...t, id: t?.id }
   }).filter(t => t?.id)
 
   const missingIds = normalized
-    .filter(t => !t.title || t.title.startsWith('Track ') || t.channel === 'Unknown Artist' || !t.thumbnail)
+    .filter(t => (
+      !t.title
+      || t.title.startsWith('Track ')
+      || t.channel === 'Unknown Artist'
+      || !t.thumbnail
+      || !t.durationSec
+      || t.embeddable == null
+    ))
     .map(t => t.id)
 
   if (missingIds.length === 0) return normalized
 
   try {
-    const details = await getVideoDetails(missingIds)
+    const uniqueIds = [...new Set(missingIds)]
+    const batches = []
+    for (let index = 0; index < uniqueIds.length; index += 50) {
+      batches.push(uniqueIds.slice(index, index + 50))
+    }
+    const details = (await Promise.all(batches.map(batch => getVideoDetails(batch)))).flat()
     const detailMap = new Map(details.map(d => [d.id, d]))
 
     return normalized.map(t => {
@@ -290,6 +308,7 @@ export const enrichTracks = async (tracks) => {
           duration: detail.durationSec || t.duration || 0,
           viewCount: detail.viewCount || t.viewCount || '0',
           likeCount: detail.likeCount || t.likeCount || '0',
+          embeddable: detail.embeddable,
         }
       }
       return t
@@ -362,13 +381,14 @@ export const getPlaylistTracks = async (playlistId, maxResults = 50, pageToken) 
           track.duration = detail.durationSec
           track.viewCount = detail.viewCount
           track.likeCount = detail.likeCount
+          track.embeddable = detail.embeddable
         }
       })
     } catch { /* non-fatal — continue without duration */ }
   }
 
   return {
-    tracks: basicTracks,
+    tracks: basicTracks.filter(track => track.embeddable !== false),
     nextPageToken: data.nextPageToken || null,
   }
 }
@@ -377,14 +397,14 @@ export const getPlaylistTracks = async (playlistId, maxResults = 50, pageToken) 
  * Get trending music videos
  */
 export const getTrendingMusic = async ({ regionCode = 'IN', maxResults = 50, pageToken } = {}) => {
-  const cacheKey = `trending:${regionCode}:${maxResults}:${pageToken || ''}`
+  const cacheKey = `trending:v2:${regionCode}:${maxResults}:${pageToken || ''}`
   const { data } = await deduplicatedRequest(cacheKey, 'trending', () =>
     ytapi.getTrending({ regionCode, videoCategoryId: '10', maxResults, pageToken })
   )
   if (isAPIError(data)) return { error: getErrorMessage(data), items: [], nextPageToken: null }
   
   return {
-    items: (data.items || []).map(normalizeVideoItem),
+    items: (data.items || []).map(normalizeVideoItem).filter(item => item?.embeddable !== false),
     nextPageToken: data.nextPageToken || null,
   }
 }

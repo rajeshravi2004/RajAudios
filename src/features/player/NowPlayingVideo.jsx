@@ -5,7 +5,7 @@
  * track info, and seamless toggle between Song and Video modes.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   MusicalNoteIcon,
   VideoCameraIcon,
@@ -30,13 +30,27 @@ export function NowPlayingVideo({ onClose }) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const isFav = currentTrack ? isFavorite(currentTrack.id) : false
 
-  const toggleFullscreen = () => {
-    const el = document.getElementById('video-stage-container')
-    if (!el) return
-    if (!document.fullscreenElement) {
-      el.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {})
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {})
+  useEffect(() => {
+    const syncFullscreenState = () => {
+      setIsFullscreen(document.fullscreenElement?.id === 'yt-player-container')
+    }
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+    return () => document.removeEventListener('fullscreenchange', syncFullscreenState)
+  }, [])
+
+  const toggleFullscreen = async () => {
+    const playerContainer = document.getElementById('yt-player-container')
+    if (!playerContainer) return
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+      } else {
+        // Fullscreen the real iframe container. The stage is its sibling, so
+        // targeting the stage previously displayed only an empty placeholder.
+        await playerContainer.requestFullscreen()
+      }
+    } catch (error) {
+      console.warn('Fullscreen request failed:', error)
     }
   }
 
@@ -95,6 +109,7 @@ export function NowPlayingVideo({ onClose }) {
             onClick={toggleFullscreen}
             className="icon-btn"
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            aria-label={isFullscreen ? 'Exit fullscreen video' : 'Fullscreen video'}
           >
             {isFullscreen ? <ArrowsPointingInIcon className="h-5 w-5" /> : <ArrowsPointingOutIcon className="h-5 w-5" />}
           </button>
@@ -134,7 +149,7 @@ export function NowPlayingVideo({ onClose }) {
           </h2>
           <p className="text-sm font-medium text-violet-300 truncate">
             {currentTrack.channel?.replace(/ - Topic$/, '') || 'Unknown Artist'}
-            {currentTrack.viewCount && ` · ${formatCount(currentTrack.viewCount)} views`}
+            {Number(currentTrack.viewCount) > 0 && ` · ${formatCount(currentTrack.viewCount)} views`}
           </p>
         </div>
       </div>
