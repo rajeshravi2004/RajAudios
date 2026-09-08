@@ -130,17 +130,59 @@ for (const [failure, expected] of [['wrong-tab', 'original Rajify music tab'], [
   })
 }
 
-test('browser device denial and popup blocking leave setup recoverable', async ({ context, page }) => {
+test('browser device denial and blocked audio windows recover through the confirmation', async ({ context, page }) => {
   await browserFixture(context, page)
   await page.evaluate(() => { window.__denyDevices = true })
   await page.getByRole('button', { name: 'Find audio devices' }).click()
   await expect(page.getByRole('alert')).toContainText('Audio-device access was cancelled or blocked')
   await page.evaluate(() => { window.__denyDevices = false })
   await selectDevicesAndSong(page)
+  await page.evaluate(() => {
+    const nativeOpen = window.open.bind(window)
+    window.__openAttempts = []
+    window.open = (url, name, features) => {
+      window.__openAttempts.push({ features, activated: navigator.userActivation.isActive })
+      return features.includes('popup') ? null : nativeOpen(url, name, features)
+    }
+  })
+  await page.getByRole('button', { name: 'Sync & play' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Open an audio tab?' })
+  await expect(dialog).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Sync & play' })).toBeEnabled()
+  expect(context.pages()).toHaveLength(1)
+  expect(await page.evaluate(() => window.__captureConfig)).toEqual({})
+
+  await page.getByRole('button', { name: 'Sync & play' }).click()
+  const popupPromise = page.waitForEvent('popup')
+  await dialog.getByRole('button', { name: 'Yes, open audio tab' }).click()
+  const audioTab = await popupPromise
+  await expect(audioTab.getByRole('button', { name: 'Share Rajify audio' })).toBeEnabled()
+  expect(await page.evaluate(() => window.__openAttempts)).toEqual([
+    { features: 'popup,width=540,height=650', activated: true },
+    { features: 'popup,width=540,height=650', activated: true },
+    { features: '', activated: true },
+  ])
+  await audioTab.getByRole('button', { name: 'Share Rajify audio' }).click()
+  await expect(page.locator('.sharing-badge.is-active')).toBeVisible()
+  expect(await audioTab.evaluate(() => window.__contexts.map(context => context.sinkId))).toEqual(['pair-a', 'pair-b'])
+  await page.getByRole('region', { name: 'Bluetooth & shared listening' }).getByRole('button', { name: 'Stop sharing', exact: true }).click()
+  await expect.poll(() => audioTab.isClosed()).toBe(true)
+  await expect(page.getByRole('button', { name: 'Sync & play' })).toBeEnabled()
+})
+
+test('blocking the fallback tab shows guidance without reopening the prompt', async ({ context, page }) => {
+  await browserFixture(context, page)
+  await selectDevicesAndSong(page)
   await page.evaluate(() => { window.open = () => null })
   await page.getByRole('button', { name: 'Sync & play' }).click()
-  await expect(page.getByRole('alert')).toContainText('Allow pop-ups')
+  await page.getByRole('button', { name: 'Yes, open audio tab' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('alert')).toContainText('Your browser also blocked the audio tab')
   await expect(page.getByRole('button', { name: 'Sync & play' })).toBeEnabled()
+  expect(await page.evaluate(() => window.__captureConfig)).toEqual({})
+  expect(context.pages()).toHaveLength(1)
 })
 
 test('browser can cancel setup before capture starts', async ({ context, page }) => {

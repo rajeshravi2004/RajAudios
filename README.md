@@ -107,7 +107,11 @@ releases capture and restores normal system-selected playback. Device choices an
 sharing state are session-only and are never cloud-synced or automatically restarted.
 On supported desktop Chrome/Edge browsers in a regular (non-incognito) window, Sync & play opens a separate audio
 window. Click **Share Rajify audio**, select the original Rajify music tab, and
-enable **Share tab audio**. Keep that window open while listening. Capture Handle
+enable **Share tab audio**. Keep that window open while listening.
+If the audio window is blocked, Rajify asks **Open an audio tab?**. Choose
+**Yes, open audio tab** to retry in a regular tab, or **Cancel** to stay in setup.
+This does not change browser permissions; if the tab is blocked too, Rajify
+explains how to allow it using the address bar's blocked pop-up icon. Capture Handle
 verifies the original tab, and local-playback suppression prevents duplicate
 audio. Screen/system capture, the output window, and unrelated tabs are rejected.
 The video track is never displayed, recorded, or uploaded. Closing either window,

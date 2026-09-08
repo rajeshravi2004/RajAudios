@@ -37,16 +37,21 @@ export function createBrowserAudioSharing() {
         && !['default', 'communications'].includes(device.deviceId))
         .map((device, index) => ({ deviceId: device.deviceId, label: device.label || `Audio output ${index + 1}` }))
     },
-    async start(options) {
+    async start(options, { openInTab = false } = {}) {
       stop()
       const ticket = generation
       const handle = crypto.randomUUID()
       navigator.mediaDevices.setCaptureHandleConfig({ handle, exposeOrigin: true, permittedOrigins: [location.origin] })
       // Open synchronously in the click event, before awaiting anything.
-      helper = window.open(new URL('audio-sharing.html', document.baseURI), `rajify-audio-${handle}`, 'popup,width=540,height=650')
+      helper = window.open(new URL('audio-sharing.html', document.baseURI), `rajify-audio-${handle}`,
+        openInTab ? '' : 'popup,width=540,height=650')
       if (!helper) {
         stop()
-        throw new Error('Allow pop-ups for Rajify, then click Sync & play again.')
+        const error = new Error(openInTab
+          ? 'Your browser also blocked the audio tab. Use the blocked pop-up icon in the address bar to allow Rajify, then try Sync & play again.'
+          : 'Your browser blocked the audio window.')
+        error.code = 'POPUP_BLOCKED'
+        throw error
       }
       const current = helper
       window.addEventListener('pagehide', stop)
