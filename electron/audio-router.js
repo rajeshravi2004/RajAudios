@@ -1,6 +1,9 @@
 // Runs only in the dedicated audio window. Playback must stay outside the
 // captured window: routing a tab's capture back into itself causes feedback.
 export const MAX_OUTPUTS = 8
+// Ask for render buffering, rather than delaying already-rendered audio. This
+// gives the browser more scheduling headroom at the cost of ~120 ms latency.
+export const OUTPUT_BUFFER_SECONDS = 0.12
 
 export function validateShareOptions(value) {
   if (!value || typeof value.mono !== 'boolean' || !Array.isArray(value.outputs)
@@ -66,7 +69,7 @@ export class AudioRouter {
       // Open every sink before muting the original player. A partial start must
       // never leave only some friends listening or leave the player silent.
       for (const output of options.outputs) {
-        const context = new AudioContext({ latencyHint: 'playback' })
+        const context = new AudioContext({ latencyHint: OUTPUT_BUFFER_SECONDS })
         const item = { ...output, context }
         pending.push(item)
         await context.setSinkId(output.deviceId)
@@ -119,7 +122,7 @@ export class AudioRouter {
       for (const item of pending) {
         item.context.addEventListener('statechange', () => {
           if (generation === this.generation && this.active && item.context.state !== 'running') {
-            void this.fail('An audio output stopped. Reconnect your earbuds and start sharing again.')
+            void this.recoverOutput(item, generation)
           }
         })
         item.context.addEventListener('sinkchange', () => {
@@ -141,7 +144,7 @@ export class AudioRouter {
 
   async update(value) {
     const options = validateShareOptions(value)
-    if (!this.active) throw new Error('Start sharing before adjusting the outputs.')
+    if (!this.active) throw new Error(this.message || 'Start sharing before adjusting the outputs.')
     if (options.outputs.length !== this.outputs.length
       || options.outputs.some(output => !this.outputs.some(item => item.deviceId === output.deviceId))) {
       throw new Error('Stop sharing before changing the selected devices.')
@@ -149,12 +152,35 @@ export class AudioRouter {
     this.mono = options.mono
     for (const item of this.outputs) {
       const output = options.outputs.find(value => value.deviceId === item.deviceId)
-      item.mix.channelCount = options.mono ? 1 : 2
-      item.gain.gain.setTargetAtTime(output.volume, item.context.currentTime, 0.02)
-      item.delay.delayTime.setTargetAtTime(item.alignmentSeconds + output.delayMs / 1000, item.context.currentTime, 0.02)
+      const channels = options.mono ? 1 : 2
+      if (item.mix.channelCount !== channels) item.mix.channelCount = channels
+      if (item.volume !== output.volume) item.gain.gain.setTargetAtTime(output.volume, item.context.currentTime, 0.02)
+      if (item.delayMs !== output.delayMs) {
+        item.delay.delayTime.setTargetAtTime(item.alignmentSeconds + output.delayMs / 1000, item.context.currentTime, 0.02)
+      }
       Object.assign(item, output)
     }
     return this.status()
+  }
+
+  async recoverOutput(item, generation) {
+    if (item.recovering) return
+    item.recovering = true
+    let timer
+    try {
+      // Resume the existing graph and live source; never reopen capture or
+      // restart the song for a temporary OS/browser audio interruption.
+      if (item.context.state !== 'closed') {
+        await Promise.race([
+          item.context.resume(),
+          new Promise(resolve => { timer = setTimeout(resolve, 2000) }),
+        ])
+      }
+    } catch { /* If resuming is denied, release capture below. */ }
+    finally { clearTimeout(timer); item.recovering = false }
+    if (generation === this.generation && this.active && item.context.state !== 'running') {
+      await this.fail('An audio output could not resume. Start sharing again.')
+    }
   }
 
   async checkDevices() {
@@ -167,8 +193,10 @@ export class AudioRouter {
   }
 
   async fail(message) {
-    await this.stop()
+    // Preserve the cause immediately: a queued volume update can arrive while
+    // contexts are closing and must not replace it with a generic setup error.
     this.message = `${message} Normal playback has been restored.`
+    await this.stop()
   }
 
   async stop() {

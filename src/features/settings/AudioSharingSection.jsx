@@ -5,7 +5,7 @@ import { usePlayer } from '../../stores/playerStore.jsx'
 
 export function AudioSharingSection() {
   const share = useAudioSharing()
-  const { currentTrack } = usePlayer()
+  const { currentTrack, isBuffering } = usePlayer()
   const [pairing, setPairing] = useState(null)
   const windows = /Windows/i.test(navigator.userAgent)
   const canStart = share.supported && !share.busy && !share.active && currentTrack && share.outputs.length > 0
@@ -121,7 +121,7 @@ export function AudioSharingSection() {
             <p className="sharing-hint">If one pair sounds ahead, add extra delay to that pair. Bluetooth timing can vary; exact synchronization is not guaranteed. Stop sharing before changing devices.</p>
             {share.error && <p className="sharing-error" role="alert">{share.error}</p>}
             <div className="sharing-footer">
-              <p role="status">{share.starting ? 'Finish setup in the audio tab. Choose the Rajify music tab and enable Share tab audio.' : share.active ? `Sending this song to ${share.outputs.length} ${share.outputs.length === 1 ? 'output' : 'outputs'}.`
+              <p role="status">{share.active && isBuffering ? 'YouTube is buffering the song. Both pairs will resume when it is ready.' : share.starting ? 'Finish setup in the audio tab. Choose the Rajify music tab and enable Share tab audio.' : share.active ? `Sending this song to ${share.outputs.length} ${share.outputs.length === 1 ? 'output' : 'outputs'}.`
                 : !currentTrack ? 'Choose a song before starting.'
                   : !share.outputs.length ? 'Select at least one audio output.' : 'Ready to share. Keep your earbuds nearby.'}</p>
               {share.active ? (
@@ -137,10 +137,11 @@ export function AudioSharingSection() {
 
 export function AudioSharingBanner({ onSettings }) {
   const share = useAudioSharing()
+  const { isBuffering } = usePlayer()
   if (!share.active) return null
   return <div className="sharing-banner" role="status">
     <Headphones aria-hidden="true" />
-    <button onClick={onSettings}>Sharing with {share.outputs.length} {share.outputs.length === 1 ? 'output' : 'outputs'}{share.mono ? ' · Mono' : ''}</button>
+    <button onClick={onSettings}>{isBuffering ? 'YouTube is buffering… listening will resume automatically.' : `Sharing with ${share.outputs.length} ${share.outputs.length === 1 ? 'output' : 'outputs'}${share.mono ? ' · Mono' : ''}`}</button>
     <button onClick={share.stop} disabled={share.busy}>Stop sharing</button>
   </div>
 }

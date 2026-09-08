@@ -33,6 +33,7 @@ async function browserFixture(context, page) {
       createDelay(max) { this.__delay = super.createDelay(max); return this.__delay }
     }
     Object.defineProperty(media, 'getDisplayMedia', { value: async options => {
+      window.__captureCount = (window.__captureCount || 0) + 1
       window.__captureOptions = options
       if (localStorage.getItem('captureFailure') === 'denied') throw new DOMException('Cancelled', 'NotAllowedError')
       const canvas = document.createElement('canvas')
@@ -60,7 +61,7 @@ async function browserFixture(context, page) {
     window.YT = {
       PlayerState: { PLAYING: 1, PAUSED: 2, ENDED: 0, BUFFERING: 3 },
       Player: class {
-        constructor(_id, options) { this.options = options; setTimeout(() => options.events.onReady({ target: this }), 0) }
+        constructor(_id, options) { this.options = options; window.__ytPlayer = this; setTimeout(() => options.events.onReady({ target: this }), 0) }
         setVolume() {}
         loadVideoById() { this.playVideo() }
         playVideo() { this.options.events.onStateChange({ data: 1 }) }
@@ -113,12 +114,68 @@ test('browser connects two outputs, routes tab audio, updates timing and stops o
   await popup.getByRole('button', { name: 'Share Rajify audio' }).click()
   await expect(page.locator('.sharing-badge.is-active')).toBeVisible()
   expect(await popup.evaluate(() => window.__contexts.map(context => context.sinkId))).toEqual(['pair-a', 'pair-b'])
+  expect(await popup.evaluate(() => window.__contexts.every(context => context.baseLatency >= 0.1))).toBe(true)
   expect(await popup.evaluate(() => window.__captureOptions.selfBrowserSurface)).toBe('exclude')
   await page.getByLabel('Extra delay for Second earbuds').fill('100')
   await expect.poll(() => popup.evaluate(() => window.__contexts[1].__delay.delayTime.value)).toBeCloseTo(0.1)
   await popup.close()
   await expect(page.getByRole('alert')).toContainText('audio tab closed')
   await expect(page.getByRole('link', { name: 'Sync & play' })).toBeEnabled()
+})
+
+test('both outputs recover from a temporary interruption without restarting capture', async ({ context, page }) => {
+  await browserFixture(context, page)
+  await selectDevicesAndSong(page)
+  const audioTab = await openAudioWindow(page)
+  await audioTab.getByRole('button', { name: 'Share Rajify audio' }).click()
+  await expect(page.locator('.sharing-badge.is-active')).toBeVisible()
+  await audioTab.evaluate(() => Promise.all(window.__contexts.map(context => context.suspend())))
+  await expect.poll(() => audioTab.evaluate(() => window.__contexts.map(context => context.state))).toEqual(['running', 'running'])
+  expect(await audioTab.evaluate(() => window.__captureCount)).toBe(1)
+  expect(await audioTab.evaluate(() => window.__stream.getTracks().every(track => track.readyState === 'live'))).toBe(true)
+  await expect(page.locator('.sharing-badge.is-active')).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await page.getByRole('region', { name: 'Bluetooth & shared listening' }).getByRole('button', { name: 'Stop sharing', exact: true }).click()
+  await expect.poll(() => audioTab.isClosed()).toBe(true)
+})
+
+for (const failure of ['denied', 'unresponsive']) test(`an output with ${failure} recovery releases sharing and allows retry`, async ({ context, page }) => {
+  await browserFixture(context, page)
+  await selectDevicesAndSong(page)
+  const audioTab = await openAudioWindow(page)
+  await audioTab.getByRole('button', { name: 'Share Rajify audio' }).click()
+  await expect(page.locator('.sharing-badge.is-active')).toBeVisible()
+  await audioTab.evaluate(async failure => {
+    window.__contexts[0].resume = async () => {
+      if (failure === 'denied') throw new DOMException('Denied', 'NotAllowedError')
+      await new Promise(() => {})
+    }
+    await window.__contexts[0].suspend()
+  }, failure)
+  await expect(page.getByRole('alert')).toContainText('An audio output could not resume')
+  await expect.poll(() => audioTab.isClosed()).toBe(true)
+  await expect(page.getByRole('link', { name: 'Sync & play' })).toBeEnabled()
+  const nextTab = await openAudioWindow(page)
+  await page.getByRole('button', { name: 'Cancel setup' }).click()
+  await expect.poll(() => nextTab.isClosed()).toBe(true)
+})
+
+test('YouTube buffering is shown without restarting either output', async ({ context, page }) => {
+  await browserFixture(context, page)
+  await selectDevicesAndSong(page)
+  const audioTab = await openAudioWindow(page)
+  await audioTab.getByRole('button', { name: 'Share Rajify audio' }).click()
+  await expect(page.locator('.sharing-badge.is-active')).toBeVisible()
+  await page.evaluate(() => window.__ytPlayer.options.events.onStateChange({ data: 3 }))
+  await expect(page.locator('.sharing-banner')).toContainText('YouTube is buffering')
+  await expect(page.locator('.sharing-badge.is-active')).toBeVisible()
+  await page.evaluate(() => window.__ytPlayer.options.events.onStateChange({ data: 1 }))
+  await expect(page.locator('.sharing-banner')).not.toContainText('buffering')
+  expect(await audioTab.evaluate(() => window.__captureCount)).toBe(1)
+  expect(await audioTab.evaluate(() => window.__contexts.map(context => context.state))).toEqual(['running', 'running'])
+  await page.evaluate(() => window.__ytPlayer.options.events.onStateChange({ data: 3 }))
+  await page.evaluate(() => window.__ytPlayer.options.events.onStateChange({ data: 2 }))
+  await expect(page.locator('.sharing-banner')).not.toContainText('buffering')
 })
 
 for (const [failure, expected] of [['wrong-tab', 'original Rajify music tab'], ['no-audio', 'No tab audio'], ['denied', 'cancelled or blocked']]) {
@@ -216,14 +273,16 @@ test('native Chromium tab capture supplies audio and verifies source identity', 
       const { captureRajifyAudio } = await import('/src/audio-sharing/capture.js')
       document.querySelector('#start').onclick = () => {
         captureRajifyAudio('native-capture-test').then(({ stream, isSource }) => {
-          window.__result = { verified: isSource(), audio: stream.getAudioTracks()[0].readyState }
+          const video = stream.getVideoTracks()[0].getSettings()
+          window.__result = { verified: isSource(), audio: stream.getAudioTracks()[0].readyState,
+            smallVideo: video.width <= 320 && video.height <= 180 && video.frameRate <= 1 }
           stream.getTracks().forEach(track => track.stop())
         }, error => { window.__error = error.message })
       }
     })
     await output.getByRole('button', { name: 'Share test tab' }).click()
     await expect.poll(() => output.evaluate(() => Boolean(window.__error || window.__result)), { timeout: 15000 }).toBe(true)
-    expect(await output.evaluate(() => window.__error || window.__result)).toEqual({ verified: true, audio: 'live' })
+    expect(await output.evaluate(() => window.__error || window.__result)).toEqual({ verified: true, audio: 'live', smallVideo: true })
   } finally {
     await context.close()
   }

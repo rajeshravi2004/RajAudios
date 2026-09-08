@@ -10,7 +10,7 @@ import { usePlayer } from '../stores/playerStore.jsx'
 import { useSettings } from '../stores/settingsStore.jsx'
 
 export function useYouTubePlayer() {
-  const { playerRef, handleTrackEnd, setPlaying, trackLoaded, setError, volume } = usePlayer()
+  const { playerRef, handleTrackEnd, setPlaying, setBuffering, trackLoaded, setError, volume } = usePlayer()
   const { settings } = useSettings()
   const apiReadyRef = useRef(false)
   const initAttempts = useRef(0)
@@ -102,9 +102,11 @@ export function useYouTubePlayer() {
                   handleTrackEnd()
                   break
                 case PlayerState.BUFFERING:
-                  // Still show as playing if we were playing
+                  // Keep play/pause intent, but expose a source-buffering pause.
+                  setBuffering(true)
                   break
                 case -1: // unstarted
+                  setBuffering(false)
                   break
               }
             },

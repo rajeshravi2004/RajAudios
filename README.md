@@ -115,6 +115,12 @@ verifies the original tab, and local-playback suppression prevents duplicate
 audio. Screen/system capture, the output window, and unrelated tabs are rejected.
 The video track is never displayed, recorded, or uploaded. Closing either window,
 source navigation, revoked capture, and detected output disconnects stop sharing.
+The browser requests a small (at most 320×180, 1 fps) video track to reduce unused
+capture work. Audio outputs request 120 ms of render buffering for scheduling
+headroom, and temporary audio-context interruptions attempt to resume the existing
+stream. The browser chooses the actual buffer size; Bluetooth and internet stalls
+can still occur. A YouTube buffering message identifies source playback pauses,
+which output buffering cannot repair. Extra delay controls only align outputs.
 
 The browser's Find audio devices button requests output access. On browsers that
 require microphone permission to reveal outputs, the microphone is immediately

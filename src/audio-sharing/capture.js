@@ -1,7 +1,9 @@
 export async function captureRajifyAudio(handle) {
   // Call directly from a click in the separate output window.
   const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: { displaySurface: 'browser', frameRate: 1 },
+    // A video track is required for tab audio, but we never render it. Limit
+    // its size and rate so capturing a large desktop does less video work.
+    video: { displaySurface: 'browser', width: { max: 320 }, height: { max: 180 }, frameRate: { max: 1 } },
     audio: { suppressLocalAudioPlayback: true, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
     selfBrowserSurface: 'exclude', systemAudio: 'exclude', surfaceSwitching: 'exclude', monitorTypeSurfaces: 'exclude',
   })

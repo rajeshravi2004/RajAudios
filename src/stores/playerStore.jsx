@@ -29,6 +29,7 @@ const initialState = {
   currentTime: 0,  // seconds
   duration: 0,     // seconds
   isLoading: false,
+  isBuffering: false,
   error: null,
   mediaMode: 'audio', // 'audio' | 'video'
 }
@@ -47,6 +48,7 @@ function playerReducer(state, action) {
         currentTrack: action.track,
         currentIndex: action.index ?? state.currentIndex,
         isLoading: true,
+        isBuffering: false,
         error: null,
         progress: 0,
         currentTime: 0,
@@ -54,10 +56,13 @@ function playerReducer(state, action) {
       }
 
     case 'TRACK_LOADED':
-      return { ...state, isLoading: false }
+      return { ...state, isLoading: false, isBuffering: false }
+
+    case 'SET_BUFFERING':
+      return { ...state, isBuffering: action.value }
 
     case 'SET_PLAYING':
-      return { ...state, isPlaying: action.value }
+      return { ...state, isPlaying: action.value, isBuffering: false }
 
     case 'SET_PROGRESS':
       return {
@@ -137,7 +142,7 @@ function playerReducer(state, action) {
       return { ...state, queue: [] }
 
     case 'SET_ERROR':
-      return { ...state, error: action.error, isLoading: false, isPlaying: false }
+      return { ...state, error: action.error, isLoading: false, isPlaying: false, isBuffering: false }
 
     case 'CLEAR_ERROR':
       return { ...state, error: null }
@@ -393,6 +398,7 @@ export function PlayerProvider({ children }) {
     clearQueue: () => dispatch({ type: 'CLEAR_QUEUE' }),
     setRepeat: (value) => dispatch({ type: 'SET_REPEAT', value }),
     setPlaying: (value) => dispatch({ type: 'SET_PLAYING', value }),
+    setBuffering: (value) => dispatch({ type: 'SET_BUFFERING', value }),
     trackLoaded: () => dispatch({ type: 'TRACK_LOADED' }),
     setError: (error) => dispatch({ type: 'SET_ERROR', error }),
     clearError: () => dispatch({ type: 'CLEAR_ERROR' }),
