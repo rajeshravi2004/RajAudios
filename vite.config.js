@@ -15,6 +15,7 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     rollupOptions: {
+      input: { app: 'index.html', audioSharing: 'audio-sharing.html' },
       output: {
         manualChunks(id) {
           if (id.includes('node_modules/@supabase')) return 'supabase'

@@ -51,13 +51,13 @@ export class AudioRouter {
       outputs: this.outputs.map(({ deviceId, volume, delayMs }) => ({ deviceId, volume, delayMs })) }
   }
 
-  async start(value) {
+  async start(value, capturedStream = null) {
     const options = validateShareOptions(value)
     await this.stop()
     this.message = ''
     const generation = this.generation
     const pending = []
-    let stream
+    let stream = capturedStream
     try {
       const available = await this.devices()
       if (options.outputs.some(output => !available.some(device => device.deviceId === output.deviceId))) {
@@ -76,7 +76,7 @@ export class AudioRouter {
       // Electron grants exactly the Rajify source tab, never system loopback.
       // The video track is required by getDisplayMedia; it is never displayed,
       // recorded or transmitted. Keep it alive for the capture session.
-      stream = await navigator.mediaDevices.getDisplayMedia({
+      stream ??= await navigator.mediaDevices.getDisplayMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
         video: { width: 1, height: 1, frameRate: 1 },
       })

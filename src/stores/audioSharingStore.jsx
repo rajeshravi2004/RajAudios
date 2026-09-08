@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useToastContext } from '../components/ui/Toast.jsx'
+import { createBrowserAudioSharing } from '../utils/browserAudioSharing.js'
 
 const AudioSharingContext = createContext(null)
 const cleanError = error => (error?.message || 'Audio sharing is unavailable.').replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 
 export function AudioSharingProvider({ children }) {
-  const api = window.electronAPI?.audioSharing
+  const [api] = useState(() => window.electronAPI?.audioSharing || createBrowserAudioSharing())
   const supported = Boolean(api?.supported)
   const { toast } = useToastContext()
   const [devices, setDevices] = useState([])
@@ -13,6 +14,7 @@ export function AudioSharingProvider({ children }) {
   const [mono, setMono] = useState(true)
   const [active, setActive] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [starting, setStarting] = useState(false)
   const [scanned, setScanned] = useState(false)
   const [error, setError] = useState('')
   const operation = useRef(0)
@@ -29,7 +31,7 @@ export function AudioSharingProvider({ children }) {
     } catch (error) {
       if (ticket === operation.current) setError(cleanError(error))
     } finally {
-      if (ticket === operation.current) { locked.current = false; setBusy(false) }
+      if (ticket === operation.current) { locked.current = false; setBusy(false); setStarting(false) }
     }
   }, [api, supported])
 
@@ -43,7 +45,11 @@ export function AudioSharingProvider({ children }) {
       setScanned(true)
       if (!active) setOutputs(previous => previous.filter(output => list.some(device => device.deviceId === output.deviceId)))
       setError('')
-    } catch (error) { setError(cleanError(error)) }
+    } catch (error) {
+      setError(error.name === 'NotAllowedError'
+        ? 'Audio-device access was cancelled or blocked. Allow access in your browser site settings, then refresh devices.'
+        : error.name === 'NotFoundError' ? 'No audio devices were found. Connect your earbuds and try again.' : cleanError(error))
+    }
     finally { locked.current = false; setBusy(false) }
   }
 
@@ -52,6 +58,7 @@ export function AudioSharingProvider({ children }) {
     const ticket = ++operation.current
     locked.current = true
     setBusy(true)
+    setStarting(true)
     setError('')
     try {
       const result = await api.start({ mono, outputs })
@@ -62,7 +69,7 @@ export function AudioSharingProvider({ children }) {
     } catch (error) {
       if (ticket === operation.current) { setActive(false); setError(cleanError(error)) }
     } finally {
-      if (ticket === operation.current) { locked.current = false; setBusy(false) }
+      if (ticket === operation.current) { locked.current = false; setBusy(false); setStarting(false) }
     }
   }
 
@@ -123,11 +130,12 @@ export function AudioSharingProvider({ children }) {
     output.deviceId === deviceId ? { ...output, ...updates } : output))
 
   const openBluetooth = async () => {
+    if (!api.openBluetooth) return
     try { await api.openBluetooth() } catch (error) { setError(cleanError(error)) }
   }
 
-  return <AudioSharingContext.Provider value={{ supported, devices, outputs, mono, setMono,
-    active, busy, scanned, error, refresh, start, stop, selectDevice, adjustOutput, openBluetooth }}>
+  return <AudioSharingContext.Provider value={{ supported, browser: Boolean(api.browser), devices, outputs, mono, setMono,
+    active, busy, starting, scanned, error, refresh, start, stop, selectDevice, adjustOutput, openBluetooth }}>
     {children}
   </AudioSharingContext.Provider>
 }

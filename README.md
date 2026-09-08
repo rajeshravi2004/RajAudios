@@ -81,9 +81,10 @@ npm run test:desktop        # Real Electron audio-routing integration (Windows)
 
 ## Bluetooth & shared listening
 
-In the Windows desktop app, open **Settings → Bluetooth & shared listening**.
-Use **Connect Bluetooth** to pair and connect each pair of earbuds in Windows,
-then **Refresh devices**, select the outputs, choose a song, and **Start sharing**.
+Open **Settings → Bluetooth & shared listening** on the website or Windows app.
+Use **Connect Bluetooth**, follow the device-settings pairing steps, then **Find
+audio devices** and select the first output. Use **Connect next Bluetooth** for
+another pair, refresh and select its output, choose a song, then **Sync & play**.
 With two pairs and **One earbud each (mono audio)** enabled, four people can each
 use one earbud and hear both channels of the song. One to eight distinct outputs
 can be selected; the Bluetooth adapter and drivers determine how many work at once.
@@ -104,8 +105,25 @@ used. The required capture video track is not displayed, recorded, or transmitte
 Stopping sharing, leaving the app, reloading, or a detected output disconnect
 releases capture and restores normal system-selected playback. Device choices and
 sharing state are session-only and are never cloud-synced or automatically restarted.
-The browser/PWA explains the desktop requirement and continues normal system audio
-playback. Pairing is managed by Windows, rather than Web Bluetooth.
+On supported desktop Chrome/Edge browsers in a regular (non-incognito) window, Sync & play opens a separate audio
+window. Click **Share Rajify audio**, select the original Rajify music tab, and
+enable **Share tab audio**. Keep that window open while listening. Capture Handle
+verifies the original tab, and local-playback suppression prevents duplicate
+audio. Screen/system capture, the output window, and unrelated tabs are rejected.
+The video track is never displayed, recorded, or uploaded. Closing either window,
+source navigation, revoked capture, and detected output disconnects stop sharing.
+
+The browser's Find audio devices button requests output access. On browsers that
+require microphone permission to reveal outputs, the microphone is immediately
+stopped; it is never recorded, uploaded, or used as the playback source. The UI
+explains this before requesting permission. Device settings handle Bluetooth
+pairing; Web Bluetooth does not pair audio headsets. Unsupported/mobile browsers
+show pairing instructions and explain why Sync & play is unavailable.
+
+Browser tests cover the real adapter, popup and Web Audio graph with simulated
+device permissions and capture-picker results, plus a native Chromium tab-capture
+check. They cover distinct outputs, timing updates, wrong-tab/no-audio rejection,
+permission denial, popup blocking, cancellation and popup-close cleanup.
 
 `npm run test:desktop` checks the actual Electron bridge and audio graph using a
 generated stereo signal, with output gains at zero. It verifies mono/stereo mixing,

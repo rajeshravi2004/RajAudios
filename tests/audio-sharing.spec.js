@@ -56,12 +56,16 @@ async function chooseSong(page) {
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
 }
 
-test('browser explains desktop sharing without pretending to pair earbuds', async ({ page }) => {
+test('unsupported browser offers pairing steps and explains sync requirements', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator.mediaDevices, 'setCaptureHandleConfig', { value: undefined }))
   await openSettings(page)
   await expect(page.getByRole('heading', { name: 'Bluetooth & shared listening' })).toBeVisible()
-  await expect(page.getByText('Open Rajify for Windows to share with multiple outputs.')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Start sharing' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Connect Bluetooth' })).toHaveCount(0)
+  await expect(page.getByText('This browser cannot send tab audio to multiple outputs.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sync & play' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Connect Bluetooth', exact: true }).click()
+  await expect(page.getByText('Connect your first Bluetooth device', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Connect next Bluetooth' }).click()
+  await expect(page.getByText('Connect your next Bluetooth device', { exact: true })).toBeVisible()
 })
 
 test('two pairs share with mono, live controls, navigation and explicit stop', async ({ page }, testInfo) => {
@@ -69,14 +73,14 @@ test('two pairs share with mono, live controls, navigation and explicit stop', a
   await desktopFixture(page)
   await page.getByRole('button', { name: 'Connect Bluetooth' }).click()
   expect(await page.evaluate(() => window.__shareCalls)).toEqual(['bluetooth'])
-  await page.getByRole('button', { name: 'Refresh devices' }).click()
+  await page.getByRole('button', { name: 'Find audio devices' }).click()
   await page.getByLabel('My earbuds', { exact: true }).check()
   await page.getByLabel('Friend’s earbuds', { exact: true }).check()
-  await expect(page.getByRole('button', { name: 'Start sharing' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Sync & play' })).toBeDisabled()
   await expect(page.getByLabel('One earbud each (mono audio)', { exact: false })).toBeChecked()
   await chooseSong(page)
-  await page.getByRole('button', { name: 'Start sharing' }).click()
-  await expect(page.getByText('Sharing on', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Sync & play' }).click()
+  await expect(page.locator('.sharing-badge.is-active')).toBeVisible()
   await page.locator('.audio-sharing-card').screenshot({ path: testInfo.outputPath('shared-listening.png') })
   await expect(page.getByLabel('My earbuds', { exact: true })).toBeDisabled()
   await page.getByLabel('Volume for My earbuds').fill('0.4')
@@ -93,21 +97,21 @@ test('two pairs share with mono, live controls, navigation and explicit stop', a
 
 test('failed starts and disconnected outputs remain recoverable', async ({ page }) => {
   await desktopFixture(page)
-  await page.getByRole('button', { name: 'Refresh devices' }).click()
+  await page.getByRole('button', { name: 'Find audio devices' }).click()
   await page.getByLabel('My earbuds', { exact: true }).check()
   await chooseSong(page)
   await page.evaluate(() => { window.__startError = 'An output is no longer available.' })
-  await page.getByRole('button', { name: 'Start sharing' }).click()
+  await page.getByRole('button', { name: 'Sync & play' }).click()
   await expect(page.getByRole('alert')).toContainText('no longer available')
-  await expect(page.getByRole('button', { name: 'Start sharing' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Sync & play' })).toBeEnabled()
   await page.evaluate(() => { window.__startError = '' })
-  await page.getByRole('button', { name: 'Start sharing' }).click()
-  await expect(page.getByText('Sharing on', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Sync & play' }).click()
+  await expect(page.locator('.sharing-badge.is-active')).toBeVisible()
   await page.evaluate(() => {
     window.__share.active = false
     window.__share.message = 'An output disconnected. Normal playback has been restored.'
   })
   await expect(page.getByRole('alert')).toContainText('disconnected')
-  await expect(page.getByRole('button', { name: 'Start sharing' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Sync & play' })).toBeEnabled()
   await expect(page.getByLabel('My earbuds', { exact: true })).toBeEnabled()
 })

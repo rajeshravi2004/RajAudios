@@ -915,6 +915,18 @@ input[type="range"]::-moz-range-thumb {
 .sharing-intro { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
 .sharing-intro svg { width: 24px; height: 24px; flex-shrink: 0; color: var(--text-accent); }
 .sharing-steps { padding-left: 20px; color: var(--text-secondary); font-size: 12px; line-height: 1.9; list-style: decimal; }
+.sharing-flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+.sharing-step { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; padding: 20px; border: 1px solid var(--border-card); border-radius: 14px; background: var(--bg-card); }
+.sharing-step.is-ready { border-color: var(--border-accent); background: var(--accent-subtle); }
+.sharing-step-number { display: grid; place-items: center; width: 28px; height: 28px; margin-bottom: 16px; border-radius: 9px; color: var(--text-accent); background: var(--accent-subtle); font-size: 12px; font-weight: 700; }
+.sharing-step-number svg { width: 16px; height: 16px; }
+.sharing-step h3 { font-size: 14px; color: var(--text-primary); margin-bottom: 7px; }
+.sharing-step p { color: var(--text-secondary); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; margin-bottom: 20px; }
+.sharing-step button { margin-top: auto; width: 100%; white-space: normal; }
+.sharing-pairing { margin: 16px 0; }
+.sharing-pairing .sharing-steps { margin: 10px 0; }
+.sharing-pairing a { text-decoration: none; }
+@media (max-width: 780px) { .sharing-flow { grid-template-columns: 1fr; } }
 .sharing-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 10px; }
 .sharing-hint { color: var(--text-muted); font-size: 11px; line-height: 1.7; margin: 10px 0; }
 .sharing-notice { padding: 15px; border: 1px solid var(--border-card); background: var(--bg-card); border-radius: 10px; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }

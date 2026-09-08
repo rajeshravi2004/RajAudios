@@ -1,10 +1,18 @@
-import { Bluetooth, Headphones, RefreshCw, Users } from 'lucide-react'
+import { useState } from 'react'
+import { Bluetooth, Check, Headphones, Plus, RefreshCw, Users } from 'lucide-react'
 import { useAudioSharing } from '../../stores/audioSharingStore.jsx'
 import { usePlayer } from '../../stores/playerStore.jsx'
 
 export function AudioSharingSection() {
   const share = useAudioSharing()
   const { currentTrack } = usePlayer()
+  const [pairing, setPairing] = useState(null)
+  const windows = /Windows/i.test(navigator.userAgent)
+  const connect = number => {
+    setPairing(number)
+    if (!share.browser) void share.openBluetooth()
+  }
+  const selectedName = index => share.devices.find(device => device.deviceId === share.outputs[index]?.deviceId)?.label
   return (
     <section className="settings-card audio-sharing-card" aria-labelledby="audio-sharing-title">
       <header className="settings-card-header">
@@ -13,33 +21,67 @@ export function AudioSharingSection() {
           <h2 id="audio-sharing-title">Bluetooth & shared listening</h2>
           <p>One song. Your earbuds. Your friends.</p>
         </div>
-        <span className={`sharing-badge ${share.active ? 'is-active' : ''}`}>{share.active ? 'Sharing on' : 'Windows desktop'}</span>
+        <span className={`sharing-badge ${share.active ? 'is-active' : ''}`}>{share.active ? 'Sharing on' : share.browser ? 'Browser audio sharing' : 'Windows desktop'}</span>
       </header>
       <div className="settings-card-body">
         <div className="sharing-intro">
           <Users aria-hidden="true" />
-          <p>Connect two pairs of earbuds and share one earbud with each friend. Four people can hear the same song.</p>
+          <p>Connect your earbuds, add your friend’s pair, then play the same song through both.</p>
         </div>
-        {!share.supported ? (
-          <div className="sharing-notice">
-            <strong>Open Rajify for Windows to share with multiple outputs.</strong>
-            <p>In the browser, connect your earbuds through your device’s Bluetooth settings. Music follows your system audio output.</p>
+        <div className="sharing-flow">
+          <div className={`sharing-step ${share.outputs.length ? 'is-ready' : ''}`}>
+            <span className="sharing-step-number">{share.outputs.length ? <Check /> : '1'}</span>
+            <h3>Your earbuds</h3>
+            <p>{selectedName(0) || 'Pair the first Bluetooth device and select its audio output.'}</p>
+            <button className="secondary-button" onClick={() => connect(1)} disabled={share.busy || share.active} aria-expanded={pairing === 1} aria-controls="sharing-pairing">
+              <Bluetooth /> Connect Bluetooth
+            </button>
           </div>
-        ) : (
+          <div className={`sharing-step ${share.outputs.length > 1 ? 'is-ready' : ''}`}>
+            <span className="sharing-step-number">{share.outputs.length > 1 ? <Check /> : '2'}</span>
+            <h3>Add another pair</h3>
+            <p>{selectedName(1) || 'Keep the first pair connected, then pair the next device.'}</p>
+            <button className="secondary-button" onClick={() => connect(Math.max(2, share.outputs.length + 1))} disabled={share.busy || share.active} aria-expanded={pairing > 1} aria-controls="sharing-pairing">
+              <Plus /> Connect next Bluetooth
+            </button>
+          </div>
+          <div className={`sharing-step ${share.active ? 'is-ready' : ''}`}>
+            <span className="sharing-step-number">{share.active ? <Check /> : '3'}</span>
+            <h3>Listen together</h3>
+            <p>{share.active ? `Playing through ${share.outputs.length} selected outputs.` : share.browser ? 'Choose a song, then share the Rajify tab’s audio in the audio window.' : 'Choose a song and send it to your selected outputs.'}</p>
+            <button className="primary-button" onClick={share.start} disabled={!share.supported || share.busy || share.active || !currentTrack || !share.outputs.length}>
+              <Users /> {share.starting ? 'Waiting for audio…' : share.active ? 'Sharing on' : 'Sync & play'}
+            </button>
+          </div>
+        </div>
+        {pairing !== null && <div className="sharing-pairing sharing-notice" id="sharing-pairing">
+          <strong>Connect {pairing === 1 ? 'your first' : 'your next'} Bluetooth device</strong>
+          <ol className="sharing-steps">
+            <li>Put {pairing === 1 ? 'your earbuds' : 'the next pair of earbuds'} in pairing mode.</li>
+            <li>Open {windows ? 'Windows Settings → Bluetooth & devices → Add device → Bluetooth' : 'your device’s Bluetooth settings'}, choose the earbuds, and wait for Connected.</li>
+            <li>Return here, find audio devices, then select {pairing === 1 ? 'your earbuds' : 'the additional output'}. Keep each earlier pair connected.</li>
+          </ol>
+          <p>Pairing happens in your device settings. Rajify shows the audio outputs your device makes available.</p>
+          <div className="sharing-actions">
+            {share.browser && windows ? <a className="secondary-button" href="ms-settings:bluetooth"><Bluetooth /> Open Bluetooth settings</a>
+              : !share.browser ? <button className="secondary-button" onClick={share.openBluetooth}><Bluetooth /> Open Bluetooth settings</button> : null}
+            <button className="secondary-button" onClick={() => setPairing(null)}>Done with pairing</button>
+          </div>
+        </div>}
+        {!share.supported && <div className="sharing-notice">
+          <strong>This browser cannot send tab audio to multiple outputs.</strong>
+          <p>You can pair earbuds in your device settings. For Sync & play, open Rajify in a supported desktop Chrome or Edge browser, or use Rajify for Windows. Mobile browsers are not supported for this flow.</p>
+        </div>}
+        {share.supported && (
           <>
-            <ol className="sharing-steps">
-              <li>Pair and connect each pair of earbuds in Windows Bluetooth settings.</li>
-              <li>Refresh the list and select the outputs you want to use.</li>
-              <li>Choose a song, then start sharing.</li>
-            </ol>
+            {share.browser && <p className="sharing-hint">Use a regular desktop Chrome or Edge window. Find audio devices asks for audio-device access. If your browser asks for microphone permission, it is used to reveal the output list; the microphone is immediately stopped, never recorded or sent anywhere. Sync & play opens a separate audio window; keep it open while listening.</p>}
             <div className="sharing-actions">
-              <button className="secondary-button" onClick={share.openBluetooth}><Bluetooth /> Connect Bluetooth</button>
-              <button className="secondary-button" onClick={share.refresh} disabled={share.busy}>
-                <RefreshCw className={share.busy ? 'spin' : ''} /> Refresh devices
+              <button className="secondary-button" onClick={share.refresh} disabled={share.busy || share.active}>
+                <RefreshCw className={share.busy ? 'spin' : ''} /> {share.scanned ? 'Refresh devices' : 'Find audio devices'}
               </button>
             </div>
-            <p className="sharing-hint">Windows handles pairing. This list shows available audio outputs, including wired headphones and speakers.</p>
-            {share.scanned && !share.devices.length && <p className="sharing-notice">No audio outputs found. Connect your earbuds in Windows, then refresh.</p>}
+            <p className="sharing-hint">Select a different output for each pair. Wired headphones and speakers may also appear; only your device settings can confirm a Bluetooth connection.</p>
+            {share.scanned && !share.devices.length && <p className="sharing-notice">No audio outputs found. Connect your earbuds in your device settings, allow audio-device access, then refresh.</p>}
             {share.devices.length > 0 && (
               <fieldset className="sharing-devices">
                 <legend>Audio outputs · {share.outputs.length} selected</legend>
@@ -76,16 +118,12 @@ export function AudioSharingSection() {
             <p className="sharing-hint">If one pair sounds ahead, add extra delay to that pair. Bluetooth timing can vary; exact synchronization is not guaranteed. Stop sharing before changing devices.</p>
             {share.error && <p className="sharing-error" role="alert">{share.error}</p>}
             <div className="sharing-footer">
-              <p role="status">{share.active ? `Sending this song to ${share.outputs.length} ${share.outputs.length === 1 ? 'output' : 'outputs'}.`
+              <p role="status">{share.starting ? 'Finish setup in the audio window. Choose the Rajify music tab and enable Share tab audio.' : share.active ? `Sending this song to ${share.outputs.length} ${share.outputs.length === 1 ? 'output' : 'outputs'}.`
                 : !currentTrack ? 'Choose a song before starting.'
                   : !share.outputs.length ? 'Select at least one audio output.' : 'Ready to share. Keep your earbuds nearby.'}</p>
               {share.active ? (
                 <button className="secondary-button" onClick={share.stop} disabled={share.busy}>Stop sharing</button>
-              ) : (
-                <button className="primary-button" onClick={share.start} disabled={share.busy || !currentTrack || !share.outputs.length}>
-                  <Users />{share.busy ? 'Please wait…' : 'Start sharing'}
-                </button>
-              )}
+              ) : share.starting && <button className="secondary-button" onClick={share.stop}>Cancel setup</button>}
             </div>
           </>
         )}

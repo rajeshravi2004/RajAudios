@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; media-src blob:; object-src 'none'; base-uri 'self'">
+    <title>Rajify — Audio sharing</title>
+  </head>
+  <body>
+    <main>
+      <span class="eyebrow">RAJIFY · SHARED LISTENING</span>
+      <h1>One song.<br>Everyone connected.</h1>
+      <p id="devices">Open this window from Settings in Rajify.</p>
+      <ol>
+        <li>Click <strong>Share Rajify audio</strong> below.</li>
+        <li>Choose the original <strong>Rajify music tab</strong> in the browser’s tab picker. Use a regular browser window; incognito mode is not supported.</li>
+        <li>Turn on <strong>Share tab audio</strong>, then click Share.</li>
+      </ol>
+      <p class="note">Keep this window open while listening. Audio goes to your selected outputs. Nothing is recorded or uploaded; the required tab video is never displayed.</p>
+      <button id="start" disabled>Share Rajify audio</button>
+      <button id="stop" class="secondary">Cancel & close</button>
+      <p id="status" role="status">Waiting for Rajify…</p>
+    </main>
+    <script type="module" src="/src/audio-sharing/main.js"></script>
+  </body>
+</html>
