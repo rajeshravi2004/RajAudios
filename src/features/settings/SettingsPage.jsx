@@ -21,6 +21,8 @@ import { useAuth } from '../../stores/authStore.jsx'
 import { useToastContext } from '../../components/ui/Toast.jsx'
 import { useDialog } from '../../components/ui/Dialog.jsx'
 import { cacheStorage } from '../../utils/storage.js'
+import { AudioSharingSection } from './AudioSharingSection.jsx'
+import { useAudioSharing } from '../../stores/audioSharingStore.jsx'
 import {
   clearSessionApiKey,
   setSessionApiKey,
@@ -70,6 +72,7 @@ const Select = ({ value, onChange, options }) => (
 )
 
 export function SettingsPage() {
+  const audioSharing = useAudioSharing()
   const { settings, updateSettings, resetSettings, cloudStatus } = useSettings()
   const { clearHistory } = useLibrary()
   const { user, profile, isConfigured, signInWithGoogle, signOut } = useAuth()
@@ -128,6 +131,7 @@ export function SettingsPage() {
       tone: 'danger',
     })
     if (!confirmed) return
+    await audioSharing.stop()
     await resetSettings()
     await clearHistory()
     await cacheStorage.clear()
@@ -170,6 +174,7 @@ export function SettingsPage() {
         </header>
 
         <div className="settings-grid">
+          <AudioSharingSection />
           <SectionCard icon={UserCircleIcon} title="Account" description="Your identity and cloud connection">
             {user ? (
               <div className="account-profile">

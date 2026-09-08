@@ -15,6 +15,7 @@ A focused music discovery experience built with React, Electron, YouTube Data AP
 - Audio and video playback modes powered by the YouTube player
 - Session-only personal YouTube API key fallback
 - Installable Electron desktop build
+- Shared listening on Windows: select multiple audio outputs, with mono audio, per-output volume, and timing adjustment
 
 ## Security model
 
@@ -75,7 +76,43 @@ npm run lint                # ESLint checks
 npm run test:e2e            # Playwright browser smoke tests
 npm run electron:dev        # Electron development
 npm run electron:build:win  # Windows installer
+npm run test:desktop        # Real Electron audio-routing integration (Windows)
 ```
+
+## Bluetooth & shared listening
+
+In the Windows desktop app, open **Settings → Bluetooth & shared listening**.
+Use **Connect Bluetooth** to pair and connect each pair of earbuds in Windows,
+then **Refresh devices**, select the outputs, choose a song, and **Start sharing**.
+With two pairs and **One earbud each (mono audio)** enabled, four people can each
+use one earbud and hear both channels of the song. One to eight distinct outputs
+can be selected; the Bluetooth adapter and drivers determine how many work at once.
+
+Volume and extra delay can be adjusted while sharing. The router compensates for
+reported output latency; if one pair still sounds ahead, add delay to that pair.
+Independent Bluetooth hardware adds latency and may drift, so this is best-effort
+shared listening, not guaranteed sample-accurate synchronization. Two real pairs
+must be tested together before relying on a particular laptop/headset combination.
+
+The existing YouTube player remains the single playback source, so play, pause,
+seek, volume, and track changes apply to every output. Electron captures only the
+Rajify window and suppresses its original local playback. A separate sandboxed,
+hidden window sends that stream to the chosen outputs; keeping capture and output
+in different windows prevents feedback. No microphone or system-audio loopback is
+used. The required capture video track is not displayed, recorded, or transmitted.
+
+Stopping sharing, leaving the app, reloading, or a detected output disconnect
+releases capture and restores normal system-selected playback. Device choices and
+sharing state are session-only and are never cloud-synced or automatically restarted.
+The browser/PWA explains the desktop requirement and continues normal system audio
+playback. Pairing is managed by Windows, rather than Web Bluetooth.
+
+`npm run test:desktop` checks the actual Electron bridge and audio graph using a
+generated stereo signal, with output gains at zero. It verifies mono/stereo mixing,
+pause, per-output configuration, failed starts, disconnect cleanup, source reload,
+and IPC origin checks. It uses up to two available physical outputs and skips the
+hardware test if none are available; it does not establish two-headset Bluetooth
+reliability or measured acoustic synchronization.
 
 ## License
 

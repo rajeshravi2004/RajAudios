@@ -31,6 +31,8 @@ import { AuthProvider } from './stores/authStore.jsx'
 import { useYouTubePlayer } from './hooks/useYouTubePlayer.js'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js'
 import { migrateCookieData } from './utils/storage.js'
+import { AudioSharingProvider } from './stores/audioSharingStore.jsx'
+import { AudioSharingBanner } from './features/settings/AudioSharingSection.jsx'
 
 // ─── App Shell (inside providers) ─────────────────────────────────────────────
 function AppShell() {
@@ -184,6 +186,7 @@ function AppShell() {
         background: 'var(--bg-base)',
       }}
     >
+      <AudioSharingBanner onSettings={() => { setMediaMode('audio'); navigate('settings') }} />
       {/* Main content area (sidebar + page) */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Sidebar */}
@@ -265,7 +268,9 @@ export default function App() {
             <PlayerProvider>
               <ToastProvider>
                 <DialogProvider>
-                  <AppShell />
+                  <AudioSharingProvider>
+                    <AppShell />
+                  </AudioSharingProvider>
                 </DialogProvider>
               </ToastProvider>
             </PlayerProvider>

@@ -9,6 +9,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "test:e2e": "playwright test",
+    "test:desktop": "playwright test --config playwright.desktop.config.js",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "preview": "vite preview",

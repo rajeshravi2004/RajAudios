@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
+import { pathToFileURL } from 'node:url'
+import { installAudioSharing } from './audio-sharing.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -80,6 +82,7 @@ const saveWindowState = () => {
 // ─── Create Window ────────────────────────────────────────────────────────────
 function createWindow() {
   const windowState = loadWindowState()
+  let trustedAppURL = 'http://localhost:5173/'
 
   mainWindow = new BrowserWindow({
     width: windowState.width || 1400,
@@ -92,7 +95,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: join(__dirname, 'preload.js'),
+      preload: join(__dirname, 'preload.mjs'),
       // webSecurity is false to allow YouTube IFrame API to work in Electron file:// context
       // This is a known trade-off for desktop YouTube player apps
       webSecurity: false,
@@ -108,6 +111,12 @@ function createWindow() {
 
   Menu.setApplicationMenu(null)
   mainWindow.setMenuBarVisibility(false)
+  installAudioSharing(mainWindow, url => {
+    if (isDev) {
+      try { return new URL(url).origin === 'http://localhost:5173' } catch { return false }
+    }
+    return url.split('#')[0] === trustedAppURL
+  })
 
   if (windowState.isMaximized) {
     mainWindow.maximize()
@@ -132,6 +141,7 @@ function createWindow() {
     }
 
     if (indexPath) {
+      trustedAppURL = pathToFileURL(indexPath).href
       mainWindow.loadFile(indexPath).catch(err => {
         console.error('Error loading file:', err)
       })

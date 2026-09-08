@@ -3,6 +3,15 @@ import { contextBridge, ipcRenderer } from 'electron'
 // Expose a minimal, typed API surface to the renderer
 // The renderer CANNOT access Node.js or Electron APIs directly
 contextBridge.exposeInMainWorld('electronAPI', {
+  audioSharing: {
+    supported: process.platform === 'win32',
+    devices: () => ipcRenderer.invoke('audio-sharing:devices'),
+    status: () => ipcRenderer.invoke('audio-sharing:status'),
+    start: options => ipcRenderer.invoke('audio-sharing:start', options),
+    update: options => ipcRenderer.invoke('audio-sharing:update', options),
+    stop: () => ipcRenderer.invoke('audio-sharing:stop'),
+    openBluetooth: () => ipcRenderer.invoke('audio-sharing:openBluetooth'),
+  },
   // ── YouTube API (proxied through main — key never in renderer) ──────────────
   youtube: {
     search: (params) => ipcRenderer.invoke('youtube:search', params),

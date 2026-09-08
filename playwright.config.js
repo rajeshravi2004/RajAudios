@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests',
+  testIgnore: '**/desktop/**',
   fullyParallel: true,
   reporter: 'line',
   use: {
