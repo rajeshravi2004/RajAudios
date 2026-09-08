@@ -105,13 +105,12 @@ used. The required capture video track is not displayed, recorded, or transmitte
 Stopping sharing, leaving the app, reloading, or a detected output disconnect
 releases capture and restores normal system-selected playback. Device choices and
 sharing state are session-only and are never cloud-synced or automatically restarted.
-On supported desktop Chrome/Edge browsers in a regular (non-incognito) window, Sync & play opens a separate audio
-window. Click **Share Rajify audio**, select the original Rajify music tab, and
-enable **Share tab audio**. Keep that window open while listening.
-If the audio window is blocked, Rajify asks **Open an audio tab?**. Choose
-**Yes, open audio tab** to retry in a regular tab, or **Cancel** to stay in setup.
-This does not change browser permissions; if the tab is blocked too, Rajify
-explains how to allow it using the address bar's blocked pop-up icon. Capture Handle
+On supported desktop Chrome/Edge browsers in a regular (non-incognito) window,
+**Sync & play** is a normal link that opens an audio tab. Click **Share Rajify audio**,
+select the original Rajify music tab, and enable **Share tab audio**.
+Keep the audio tab open while listening. No pop-up permission prompt is needed.
+The tabs communicate over a same-origin BroadcastChannel with a unique session
+token; setup does not depend on `window.open()` or `window.opener`. Capture Handle
 verifies the original tab, and local-playback suppression prevents duplicate
 audio. Screen/system capture, the output window, and unrelated tabs are rejected.
 The video track is never displayed, recorded, or uploaded. Closing either window,
@@ -124,10 +123,10 @@ explains this before requesting permission. Device settings handle Bluetooth
 pairing; Web Bluetooth does not pair audio headsets. Unsupported/mobile browsers
 show pairing instructions and explain why Sync & play is unavailable.
 
-Browser tests cover the real adapter, popup and Web Audio graph with simulated
+Browser tests cover the real adapter, audio tab and Web Audio graph with simulated
 device permissions and capture-picker results, plus a native Chromium tab-capture
 check. They cover distinct outputs, timing updates, wrong-tab/no-audio rejection,
-permission denial, popup blocking, cancellation and popup-close cleanup.
+permission denial, blocked script pop-ups, opener isolation, cancellation and tab-close cleanup.
 
 `npm run test:desktop` checks the actual Electron bridge and audio graph using a
 generated stereo signal, with output gains at zero. It verifies mono/stereo mixing,

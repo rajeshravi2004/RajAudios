@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useToastContext } from '../components/ui/Toast.jsx'
-import { useDialog } from '../components/ui/Dialog.jsx'
 import { createBrowserAudioSharing } from '../utils/browserAudioSharing.js'
 
 const AudioSharingContext = createContext(null)
@@ -10,7 +9,6 @@ export function AudioSharingProvider({ children }) {
   const [api] = useState(() => window.electronAPI?.audioSharing || createBrowserAudioSharing())
   const supported = Boolean(api?.supported)
   const { toast } = useToastContext()
-  const { confirm } = useDialog()
   const [devices, setDevices] = useState([])
   const [outputs, setOutputs] = useState([])
   const [mono, setMono] = useState(true)
@@ -55,33 +53,15 @@ export function AudioSharingProvider({ children }) {
     finally { locked.current = false; setBusy(false) }
   }
 
-  const start = async () => {
-    if (!supported || locked.current || !outputs.length) return
+  const start = async event => {
+    if (!supported || locked.current || !outputs.length) { event?.preventDefault(); return }
     const ticket = ++operation.current
     locked.current = true
     setBusy(true)
     setStarting(true)
     setError('')
     try {
-      const options = { mono, outputs }
-      let result
-      try {
-        result = await api.start(options)
-      } catch (error) {
-        if (!api.browser || error.code !== 'POPUP_BLOCKED') throw error
-        if (ticket !== operation.current) return
-        setStarting(false)
-        const accepted = await confirm({
-          title: 'Open an audio tab?',
-          message: 'Your browser blocked the audio window. Open a regular tab to continue? Then click Share Rajify audio and choose your music tab. Keep the audio tab open while listening.',
-          confirmLabel: 'Yes, open audio tab',
-          cancelLabel: 'Cancel',
-        })
-        if (!accepted || ticket !== operation.current) return
-        setStarting(true)
-        // Retry immediately from the confirmation click's user activation.
-        result = await api.start(options, { openInTab: true })
-      }
+      const result = await api.start({ mono, outputs })
       if (ticket === operation.current) {
         setActive(result.active)
         if (!result.active) setError(result.message || 'Sharing could not start.')
@@ -118,6 +98,8 @@ export function AudioSharingProvider({ children }) {
         const status = await api.status()
         if (cancelled || ticket !== operation.current) return
         if (!status.active) {
+          await api.stop()
+          if (cancelled || ticket !== operation.current) return
           setActive(false)
           const message = status.message || 'Sharing stopped. Normal playback has been restored.'
           setError(message)
@@ -154,7 +136,7 @@ export function AudioSharingProvider({ children }) {
     try { await api.openBluetooth() } catch (error) { setError(cleanError(error)) }
   }
 
-  return <AudioSharingContext.Provider value={{ supported, browser: Boolean(api.browser), devices, outputs, mono, setMono,
+  return <AudioSharingContext.Provider value={{ supported, browser: Boolean(api.browser), setupUrl: api.setupUrl, devices, outputs, mono, setMono,
     active, busy, starting, scanned, error, refresh, start, stop, selectDevice, adjustOutput, openBluetooth }}>
     {children}
   </AudioSharingContext.Provider>

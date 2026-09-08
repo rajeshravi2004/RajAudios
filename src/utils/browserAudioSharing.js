@@ -5,21 +5,43 @@ export function createBrowserAudioSharing() {
   const supported = Boolean(window.isSecureContext && navigator.mediaDevices?.getDisplayMedia
     && navigator.mediaDevices?.setCaptureHandleConfig && globalThis.AudioContext?.prototype.setSinkId
     && globalThis.MediaStreamTrack?.prototype.getCaptureHandle
-    && navigator.mediaDevices?.getSupportedConstraints().suppressLocalAudioPlayback)
-  let helper = null
+    && navigator.mediaDevices?.getSupportedConstraints().suppressLocalAudioPlayback && globalThis.BroadcastChannel)
+  let nextHandle = supported ? crypto.randomUUID() : ''
+  let session = null
   let generation = 0
   const stop = () => {
     generation++
     window.removeEventListener('pagehide', stop)
-    if (helper && !helper.closed) helper.close()
-    helper = null
+    if (session) {
+      session.channel.postMessage({ type: 'stop' })
+      session.channel.close()
+      for (const pending of session.pending.values()) pending.reject(new Error('Audio sharing stopped.'))
+      session = null
+    }
     if (supported) navigator.mediaDevices.setCaptureHandleConfig({})
     return idle('')
   }
+  const request = (current, method, value) => new Promise((resolve, reject) => {
+    const id = crypto.randomUUID()
+    const timer = setTimeout(() => {
+      current.pending.delete(id)
+      reject(new Error('The audio tab is not responding. Start sharing again.'))
+    }, 15000)
+    current.pending.set(id, {
+      resolve: result => { clearTimeout(timer); resolve(result) },
+      reject: error => { clearTimeout(timer); reject(error) },
+    })
+    current.channel.postMessage({ type: 'request', id, method, value })
+  })
 
   return {
     supported,
     browser: true,
+    get setupUrl() {
+      const url = new URL('audio-sharing.html', document.baseURI)
+      url.hash = nextHandle
+      return url.href
+    },
     async devices() {
       // Only called by the explicit Find/Refresh button, after explaining the
       // permission. Chrome uses mic permission to reveal all output devices.
@@ -37,50 +59,55 @@ export function createBrowserAudioSharing() {
         && !['default', 'communications'].includes(device.deviceId))
         .map((device, index) => ({ deviceId: device.deviceId, label: device.label || `Audio output ${index + 1}` }))
     },
-    async start(options, { openInTab = false } = {}) {
+    async start(options) {
       stop()
       const ticket = generation
-      const handle = crypto.randomUUID()
+      // The Sync & play anchor opens the tab natively after this click handler.
+      // Connect by a private session channel, never by window.open or opener.
+      const handle = nextHandle
+      nextHandle = crypto.randomUUID()
       navigator.mediaDevices.setCaptureHandleConfig({ handle, exposeOrigin: true, permittedOrigins: [location.origin] })
-      // Open synchronously in the click event, before awaiting anything.
-      helper = window.open(new URL('audio-sharing.html', document.baseURI), `rajify-audio-${handle}`,
-        openInTab ? '' : 'popup,width=540,height=650')
-      if (!helper) {
-        stop()
-        const error = new Error(openInTab
-          ? 'Your browser also blocked the audio tab. Use the blocked pop-up icon in the address bar to allow Rajify, then try Sync & play again.'
-          : 'Your browser blocked the audio window.')
-        error.code = 'POPUP_BLOCKED'
-        throw error
-      }
-      const current = helper
-      window.addEventListener('pagehide', stop)
       try {
-        const deadline = Date.now() + 30000
-        while (!current.rajifyAudio) {
-          if (current.closed || ticket !== generation) throw new Error('Audio setup was closed. Click Sync & play to try again.')
-          if (Date.now() > deadline) throw new Error('The audio window could not load. Please try again.')
-          await pause()
+        const current = { channel: new BroadcastChannel(`rajify-audio-${handle}`), pending: new Map(), ready: false,
+          status: { ...idle(''), waiting: true } }
+        session = current
+        current.channel.onmessage = ({ data }) => {
+          if (ticket !== generation) return
+          if (data.type === 'ready') current.channel.postMessage({ type: 'prepare', options, handle })
+          if (data.type === 'heartbeat') current.channel.postMessage({ type: 'alive' })
+          if (data.type === 'status') { current.ready = true; current.status = data.status }
+          if (data.type === 'result') {
+            const pending = current.pending.get(data.id)
+            current.pending.delete(data.id)
+            if (data.error) pending?.reject(new Error(data.error))
+            else pending?.resolve(data.result)
+          }
         }
-        current.rajifyAudio('prepare', { options, handle })
-        while (ticket === generation && !current.closed) {
-          const status = current.rajifyAudio('status')
+        window.addEventListener('pagehide', stop)
+        const deadline = Date.now() + 15000
+        while (ticket === generation) {
+          if (!current.ready && Date.now() > deadline) {
+            throw new Error('The audio tab did not connect. Reload Rajify, then click Sync & play again.')
+          }
+          const status = current.status
           if (status.active) return status
           if (!status.waiting) throw new Error(status.message || 'Sharing could not start.')
           await pause()
         }
-        throw new Error('Audio setup was closed. Click Sync & play to try again.')
+        throw new Error('Audio setup was cancelled.')
       } catch (error) {
         if (ticket === generation) stop()
         throw error
       }
     },
     async status() {
-      return helper && !helper.closed ? helper.rajifyAudio('status') : idle('The audio window closed. Normal playback has been restored.')
+      if (!session) return idle('Sharing stopped. Normal playback has been restored.')
+      if (!session.status.waiting && !session.status.active) return session.status
+      return request(session, 'status')
     },
     async update(options) {
-      if (!helper || helper.closed) throw new Error('The audio window closed. Start sharing again.')
-      return helper.rajifyAudio('update', options)
+      if (!session) throw new Error('The audio tab closed. Start sharing again.')
+      return request(session, 'update', options)
     },
     async stop() { return stop() },
   }

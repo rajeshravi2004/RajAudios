@@ -8,6 +8,7 @@ export function AudioSharingSection() {
   const { currentTrack } = usePlayer()
   const [pairing, setPairing] = useState(null)
   const windows = /Windows/i.test(navigator.userAgent)
+  const canStart = share.supported && !share.busy && !share.active && currentTrack && share.outputs.length > 0
   const connect = number => {
     setPairing(number)
     if (!share.browser) void share.openBluetooth()
@@ -48,10 +49,12 @@ export function AudioSharingSection() {
           <div className={`sharing-step ${share.active ? 'is-ready' : ''}`}>
             <span className="sharing-step-number">{share.active ? <Check /> : '3'}</span>
             <h3>Listen together</h3>
-            <p>{share.active ? `Playing through ${share.outputs.length} selected outputs.` : share.browser ? 'Choose a song, then share the Rajify tab’s audio in the audio window.' : 'Choose a song and send it to your selected outputs.'}</p>
-            <button className="primary-button" onClick={share.start} disabled={!share.supported || share.busy || share.active || !currentTrack || !share.outputs.length}>
+            <p>{share.active ? `Playing through ${share.outputs.length} selected outputs.` : share.browser ? 'Sync & play opens an audio tab. Click Share Rajify audio there, choose your music tab, and enable Share tab audio.' : 'Choose a song and send it to your selected outputs.'}</p>
+            {share.browser && canStart ? <a className="primary-button" href={share.setupUrl} target="_blank" rel="noopener" onClick={share.start}>
+              <Users /> Sync & play
+            </a> : <button className="primary-button" onClick={share.start} disabled={!canStart}>
               <Users /> {share.starting ? 'Waiting for audio…' : share.active ? 'Sharing on' : 'Sync & play'}
-            </button>
+            </button>}
           </div>
         </div>
         {pairing !== null && <div className="sharing-pairing sharing-notice" id="sharing-pairing">
@@ -74,7 +77,7 @@ export function AudioSharingSection() {
         </div>}
         {share.supported && (
           <>
-            {share.browser && <p className="sharing-hint">Use a regular desktop Chrome or Edge window. Find audio devices asks for audio-device access. If your browser asks for microphone permission, it is used to reveal the output list; the microphone is immediately stopped, never recorded or sent anywhere. Sync & play opens a separate audio window; keep it open while listening.</p>}
+            {share.browser && <p className="sharing-hint">Use a regular desktop Chrome or Edge window. Find audio devices asks for audio-device access. If your browser asks for microphone permission, it is used to reveal the output list; the microphone is immediately stopped, never recorded or sent anywhere. Keep the audio tab open while listening.</p>}
             <div className="sharing-actions">
               <button className="secondary-button" onClick={share.refresh} disabled={share.busy || share.active}>
                 <RefreshCw className={share.busy ? 'spin' : ''} /> {share.scanned ? 'Refresh devices' : 'Find audio devices'}
@@ -118,7 +121,7 @@ export function AudioSharingSection() {
             <p className="sharing-hint">If one pair sounds ahead, add extra delay to that pair. Bluetooth timing can vary; exact synchronization is not guaranteed. Stop sharing before changing devices.</p>
             {share.error && <p className="sharing-error" role="alert">{share.error}</p>}
             <div className="sharing-footer">
-              <p role="status">{share.starting ? 'Finish setup in the audio window. Choose the Rajify music tab and enable Share tab audio.' : share.active ? `Sending this song to ${share.outputs.length} ${share.outputs.length === 1 ? 'output' : 'outputs'}.`
+              <p role="status">{share.starting ? 'Finish setup in the audio tab. Choose the Rajify music tab and enable Share tab audio.' : share.active ? `Sending this song to ${share.outputs.length} ${share.outputs.length === 1 ? 'output' : 'outputs'}.`
                 : !currentTrack ? 'Choose a song before starting.'
                   : !share.outputs.length ? 'Select at least one audio output.' : 'Ready to share. Keep your earbuds nearby.'}</p>
               {share.active ? (

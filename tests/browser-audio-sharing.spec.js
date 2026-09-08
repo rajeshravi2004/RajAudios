@@ -1,13 +1,16 @@
 import { test, expect, chromium } from '@playwright/test'
 
-// Exercise the real browser adapter, popup, and Web Audio graph. Only hardware
+// Keep Chromium's real popup blocker enabled for the native-link flow.
+test.use({ launchOptions: { ignoreDefaultArgs: ['--disable-popup-blocking'] } })
+
+// Exercise the real browser adapter, audio tab, and Web Audio graph. Only hardware
 // permissions, device IDs, and the browser's native capture picker are fixtures.
 async function browserFixture(context, page) {
   await context.addInitScript(() => {
     const media = navigator.mediaDevices
     const nativeConstraints = media.getSupportedConstraints.bind(media)
     Object.defineProperty(media, 'getSupportedConstraints', { value: () => ({ ...nativeConstraints(), suppressLocalAudioPlayback: true }) })
-    Object.defineProperty(media, 'setCaptureHandleConfig', { value: config => { window.__captureConfig = config } })
+    Object.defineProperty(media, 'setCaptureHandleConfig', { value: config => { window.__captureConfig = config; localStorage.setItem('captureConfig', JSON.stringify(config)) } })
     MediaStreamTrack.prototype.getCaptureHandle = function () { return null }
     Object.defineProperty(media, 'selectAudioOutput', { value: undefined })
     Object.defineProperty(navigator.permissions, 'query', { value: async () => ({ state: 'prompt' }) })
@@ -27,10 +30,11 @@ async function browserFixture(context, page) {
       constructor(options) { super(options); window.__contexts.push(this) }
       async setSinkId(id) { this.__sink = id }
       get sinkId() { return this.__sink }
+      createDelay(max) { this.__delay = super.createDelay(max); return this.__delay }
     }
     Object.defineProperty(media, 'getDisplayMedia', { value: async options => {
       window.__captureOptions = options
-      if (window.opener.__captureFailure === 'denied') throw new DOMException('Cancelled', 'NotAllowedError')
+      if (localStorage.getItem('captureFailure') === 'denied') throw new DOMException('Cancelled', 'NotAllowedError')
       const canvas = document.createElement('canvas')
       canvas.width = 8; canvas.height = 8
       canvas.getContext('2d').fillRect(0, 0, 8, 8)
@@ -38,10 +42,10 @@ async function browserFixture(context, page) {
       const video = stream.getVideoTracks()[0]
       Object.defineProperty(video, 'getCaptureHandle', { value: () => ({
         origin: location.origin,
-        handle: window.opener.__captureFailure === 'wrong-tab' ? 'wrong' : window.opener.__captureConfig.handle,
+        handle: localStorage.getItem('captureFailure') === 'wrong-tab' ? 'wrong' : JSON.parse(localStorage.getItem('captureConfig')).handle,
       }) })
       Object.defineProperty(video, 'getSettings', { value: () => ({ displaySurface: 'browser' }) })
-      if (window.opener.__captureFailure !== 'no-audio') {
+      if (localStorage.getItem('captureFailure') !== 'no-audio') {
         const source = new NativeContext()
         const destination = source.createMediaStreamDestination()
         // A silent real audio track: tests never play sound on the user's device.
@@ -94,7 +98,7 @@ async function selectDevicesAndSong(page) {
 
 async function openAudioWindow(page) {
   const popupPromise = page.waitForEvent('popup')
-  await page.getByRole('button', { name: 'Sync & play' }).click()
+  await page.getByRole('link', { name: 'Sync & play' }).click()
   const popup = await popupPromise
   await expect(popup.getByRole('button', { name: 'Share Rajify audio' })).toBeEnabled()
   return popup
@@ -111,26 +115,26 @@ test('browser connects two outputs, routes tab audio, updates timing and stops o
   expect(await popup.evaluate(() => window.__contexts.map(context => context.sinkId))).toEqual(['pair-a', 'pair-b'])
   expect(await popup.evaluate(() => window.__captureOptions.selfBrowserSurface)).toBe('exclude')
   await page.getByLabel('Extra delay for Second earbuds').fill('100')
-  await expect.poll(() => popup.evaluate(() => window.rajifyAudio('status').outputs[1].delayMs)).toBe(100)
+  await expect.poll(() => popup.evaluate(() => window.__contexts[1].__delay.delayTime.value)).toBeCloseTo(0.1)
   await popup.close()
-  await expect(page.getByRole('alert')).toContainText('audio window closed')
-  await expect(page.getByRole('button', { name: 'Sync & play' })).toBeEnabled()
+  await expect(page.getByRole('alert')).toContainText('audio tab closed')
+  await expect(page.getByRole('link', { name: 'Sync & play' })).toBeEnabled()
 })
 
 for (const [failure, expected] of [['wrong-tab', 'original Rajify music tab'], ['no-audio', 'No tab audio'], ['denied', 'cancelled or blocked']]) {
   test(`browser recovers from capture ${failure}`, async ({ context, page }) => {
     await browserFixture(context, page)
     await selectDevicesAndSong(page)
-    await page.evaluate(value => { window.__captureFailure = value }, failure)
+    await page.evaluate(value => { localStorage.setItem('captureFailure', value) }, failure)
     const popup = await openAudioWindow(page)
     await popup.getByRole('button', { name: 'Share Rajify audio' }).click()
     await expect(page.getByRole('alert')).toContainText(expected)
-    await expect(page.getByRole('button', { name: 'Sync & play' })).toBeEnabled()
+    await expect(page.getByRole('link', { name: 'Sync & play' })).toBeEnabled()
     await expect.poll(() => popup.isClosed()).toBe(true)
   })
 }
 
-test('browser device denial and blocked audio windows recover through the confirmation', async ({ context, page }) => {
+test('native audio link works with script popups blocked and no opener', async ({ context, page }) => {
   await browserFixture(context, page)
   await page.evaluate(() => { window.__denyDevices = true })
   await page.getByRole('button', { name: 'Find audio devices' }).click()
@@ -138,51 +142,42 @@ test('browser device denial and blocked audio windows recover through the confir
   await page.evaluate(() => { window.__denyDevices = false })
   await selectDevicesAndSong(page)
   await page.evaluate(() => {
-    const nativeOpen = window.open.bind(window)
-    window.__openAttempts = []
-    window.open = (url, name, features) => {
-      window.__openAttempts.push({ features, activated: navigator.userActivation.isActive })
-      return features.includes('popup') ? null : nativeOpen(url, name, features)
-    }
+    window.__openAttempts = 0
+    window.open = () => { window.__openAttempts++; return null }
   })
-  await page.getByRole('button', { name: 'Sync & play' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Open an audio tab?' })
-  await expect(dialog).toBeVisible()
+  const audioTab = await openAudioWindow(page)
+  expect(await page.evaluate(() => window.__openAttempts)).toBe(0)
+  expect(await audioTab.evaluate(() => window.opener)).toBeNull()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByRole('alert')).toHaveCount(0)
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Sync & play' })).toBeEnabled()
-  expect(context.pages()).toHaveLength(1)
-  expect(await page.evaluate(() => window.__captureConfig)).toEqual({})
-
-  await page.getByRole('button', { name: 'Sync & play' }).click()
-  const popupPromise = page.waitForEvent('popup')
-  await dialog.getByRole('button', { name: 'Yes, open audio tab' }).click()
-  const audioTab = await popupPromise
-  await expect(audioTab.getByRole('button', { name: 'Share Rajify audio' })).toBeEnabled()
-  expect(await page.evaluate(() => window.__openAttempts)).toEqual([
-    { features: 'popup,width=540,height=650', activated: true },
-    { features: 'popup,width=540,height=650', activated: true },
-    { features: '', activated: true },
-  ])
   await audioTab.getByRole('button', { name: 'Share Rajify audio' }).click()
   await expect(page.locator('.sharing-badge.is-active')).toBeVisible()
   expect(await audioTab.evaluate(() => window.__contexts.map(context => context.sinkId))).toEqual(['pair-a', 'pair-b'])
   await page.getByRole('region', { name: 'Bluetooth & shared listening' }).getByRole('button', { name: 'Stop sharing', exact: true }).click()
   await expect.poll(() => audioTab.isClosed()).toBe(true)
-  await expect(page.getByRole('button', { name: 'Sync & play' })).toBeEnabled()
+  await expect(page.getByRole('link', { name: 'Sync & play' })).toBeEnabled()
+  expect(await page.evaluate(() => window.__captureConfig)).toEqual({})
 })
 
-test('blocking the fallback tab shows guidance without reopening the prompt', async ({ context, page }) => {
+test('an audio tab that cannot load reports a connection error and can be retried', async ({ context, page }) => {
   await browserFixture(context, page)
   await selectDevicesAndSong(page)
-  await page.evaluate(() => { window.open = () => null })
-  await page.getByRole('button', { name: 'Sync & play' }).click()
-  await page.getByRole('button', { name: 'Yes, open audio tab' }).click()
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByRole('alert')).toContainText('Your browser also blocked the audio tab')
-  await expect(page.getByRole('button', { name: 'Sync & play' })).toBeEnabled()
+  await context.route('**/audio-sharing.html', route => route.abort())
+  await page.clock.install()
+  const tabPromise = context.waitForEvent('page')
+  await page.getByRole('link', { name: 'Sync & play' }).click()
+  const failedTab = await tabPromise
+  await page.clock.runFor(16000)
+  await expect(page.getByRole('alert')).toContainText('The audio tab did not connect')
+  await expect(page.getByRole('alert')).not.toContainText('blocked')
+  await expect(page.getByRole('link', { name: 'Sync & play' })).toBeEnabled()
   expect(await page.evaluate(() => window.__captureConfig)).toEqual({})
-  expect(context.pages()).toHaveLength(1)
+  await failedTab.close()
+  await context.unroute('**/audio-sharing.html')
+  await page.clock.resume()
+  const audioTab = await openAudioWindow(page)
+  await page.getByRole('button', { name: 'Cancel setup' }).click()
+  await expect.poll(() => audioTab.isClosed()).toBe(true)
 })
 
 test('browser can cancel setup before capture starts', async ({ context, page }) => {
@@ -191,7 +186,7 @@ test('browser can cancel setup before capture starts', async ({ context, page })
   const popup = await openAudioWindow(page)
   await page.getByRole('button', { name: 'Cancel setup' }).click()
   await expect.poll(() => popup.isClosed()).toBe(true)
-  await expect(page.getByRole('button', { name: 'Sync & play' })).toBeEnabled()
+  await expect(page.getByRole('link', { name: 'Sync & play' })).toBeEnabled()
   await expect(page.getByRole('alert')).toHaveCount(0)
   const nextPopup = await openAudioWindow(page)
   await page.reload()
