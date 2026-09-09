@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -71,6 +72,17 @@ class _RajifyAppState extends State<RajifyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
+      unawaited(_player.pause());
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    // The keyboard temporarily replaces the video area on small screens.
+    // Pause first so the app never continues hidden YouTube playback.
+    if (WidgetsBinding.instance.platformDispatcher.views.any(
+      (view) => view.viewInsets.bottom > 0,
+    )) {
       unawaited(_player.pause());
     }
   }
@@ -220,6 +232,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final _navigator = GlobalKey<NavigatorState>();
+  final _dockKey = GlobalKey();
   final _tabState = ValueNotifier<int>(0);
   final Set<int> _visited = {0};
   void _open(Widget page) => _navigator.currentState!.push(
@@ -313,32 +326,42 @@ class _AppShellState extends State<AppShell> {
           builder: (context, _) => LayoutBuilder(
             builder: (context, constraints) {
               final showPlayer = widget.player.current != null;
-              final compact = showPlayer && constraints.maxHeight < 420;
+              final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+              final navigator = Navigator(
+                key: _navigator,
+                onGenerateRoute: (_) =>
+                    MaterialPageRoute<void>(builder: (_) => _pages()),
+              );
+              final dock = PlayerDock(
+                key: _dockKey,
+                app: widget.app,
+                player: widget.player,
+                openQueue: () =>
+                    _open(QueuePage(app: widget.app, player: widget.player)),
+              );
+              if (showPlayer && !keyboardOpen && constraints.maxWidth >= 650) {
+                return Row(
+                  children: [
+                    SizedBox(
+                      width: math.min(380, constraints.maxWidth * 0.45),
+                      child: SingleChildScrollView(child: dock),
+                    ),
+                    Expanded(child: navigator),
+                  ],
+                );
+              }
               return Column(
                 children: [
-                  Expanded(
-                    child: Offstage(
-                      offstage: compact,
-                      child: Navigator(
-                        key: _navigator,
-                        onGenerateRoute: (_) =>
-                            MaterialPageRoute<void>(builder: (_) => _pages()),
+                  Expanded(child: navigator),
+                  Offstage(
+                    offstage: !showPlayer || keyboardOpen,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: math.min(360, constraints.maxHeight * 0.6),
                       ),
+                      child: SingleChildScrollView(child: dock),
                     ),
                   ),
-                  if (showPlayer)
-                    Flexible(
-                      flex: compact ? 1000 : 0,
-                      child: SingleChildScrollView(
-                        child: PlayerDock(
-                          app: widget.app,
-                          player: widget.player,
-                          openQueue: () => _open(
-                            QueuePage(app: widget.app, player: widget.player),
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               );
             },

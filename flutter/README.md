@@ -1,6 +1,11 @@
-# Rajify for Android — Flutter
+# Rajify for Android â€” Flutter
 
 The native Android version of Rajify, alongside the React website and Electron Windows app. Application screens and state are Dart/Flutter; this does not load the Rajify website in a WebView. The sole embedded view is YouTube's official iframe player, provided by `youtube_player_iframe`.
+
+<p>
+  <img src="docs/screenshots/home.png" width="260" alt="Native Rajify discovery screen on Android" />
+  <img src="docs/screenshots/player.png" width="260" alt="YouTube video playing inside the native Rajify app" />
+</p>
 
 ## Features
 
@@ -109,7 +114,7 @@ git push origin android-v1.0.0
 
 ## Android platform differences
 
-- All navigation, discovery, search, library, settings, and player controls are Flutter widgets. The official YouTube player remains visible while music plays; this build does not extract audio streams, provide hidden audio-only playback, or implement background/lock-screen playback. It pauses when the app leaves the foreground. Availability of particular videos depends on YouTube's embedding/region restrictions.
+- All navigation, discovery, search, library, settings, and player controls are Flutter widgets. The official YouTube player remains visible while music plays; this build does not extract audio streams, provide hidden audio-only playback, or implement background/lock-screen playback. It pauses when the app leaves the foreground or the keyboard temporarily replaces the player area. Availability of particular videos depends on YouTube's embedding/region restrictions.
 - Android chooses the system audio output. Settings opens native Bluetooth pairing and sound settings. Dual Audio/LE Audio sharing depends on the phone and headphones. Electron's per-output volume, mono mixing, delay adjustment, and capture-based multi-device routing are not available here.
 - Local likes/playlists/history are independent from the browser's IndexedDB. Signed-in **preferences** share the existing web schema. Sync is not a live collaborative editing system.
 - Google OAuth, owner administration, audible playback, and Bluetooth need device/account/network validation. Automated tests do not claim real headset synchronization or replace signing into Google on a device.
@@ -123,6 +128,8 @@ flutter test
 ```
 
 Tests cover YouTube metadata/playlist IDs, filtering, queue reorder/remove/repeat/shuffle, library persistence and history limits, request deduplication/pagination, key routing and removal, quota/invalid responses, native guest/library navigation, and stale search response rejection. No tests delete real users or consume real account credentials.
+
+The universal release APK was also installed and launched on an Android 16 / API 36 emulator. Guest discovery fetched live music, and an embedded music video reached the playing state. The screenshots above were captured from that Android app. This does not establish audible output/headset behavior or Google OAuth/account-administration success.
 
 ## Source layout
 
