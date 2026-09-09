@@ -76,7 +76,7 @@ Transfer the APK to an Android phone and open it. Allow installation from the br
 
 ## GitHub APK builds & releases
 
-The [Flutter Android APK workflow](../.github/workflows/flutter-apk.yml) runs for changes to Flutter on main, `codex/**` branches, and pull requests, and can be run manually once present on the default branch.
+The [Flutter Android APK workflow](../.github/workflows/flutter-apk.yml) runs for changes to Flutter on main and pull requests, and can be run manually once present on the default branch.
 
 1. Open **Actions ? Flutter Android APK** and select a successful run.
 2. Download **rajify-android-apk** under **Artifacts** (GitHub sign-in required).

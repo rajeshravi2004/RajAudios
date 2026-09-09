@@ -12,10 +12,12 @@ class PlayerDock extends StatelessWidget {
     required this.app,
     required this.player,
     required this.openQueue,
+    this.hideForKeyboard = false,
   });
   final AppState app;
   final PlayerStateModel player;
   final VoidCallback openQueue;
+  final bool hideForKeyboard;
   @override
   Widget build(BuildContext context) {
     if (player.current == null || player.controller == null) {
@@ -28,131 +30,137 @@ class PlayerDock extends StatelessWidget {
         children: [
           // This is the only embedded view: all surrounding application UI is Flutter.
           SizedBox(
-            height: 200,
+            // A zero-sized player placeholder also hides the package's native
+            // overlay, while preserving the controller and playback position.
+            height: hideForKeyboard ? 0 : 200,
+            width: hideForKeyboard ? 0 : null,
             child: Center(
               child: AspectRatio(
                 aspectRatio: 16 / 9,
                 child: YoutubePlayer(
                   key: ObjectKey(player.controller),
                   controller: player.controller!,
+                  autoFullScreen: false,
+                  enableFullScreenOnVerticalDrag: false,
                 ),
               ),
             ),
           ),
-          ListenableBuilder(
-            listenable: player,
-            builder: (context, _) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (player.error != null)
+          if (!hideForKeyboard)
+            ListenableBuilder(
+              listenable: player,
+              builder: (context, _) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (player.error != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              player.error!,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: player.retry,
+                            child: const Text('Retry'),
+                          ),
+                          IconButton(
+                            tooltip: 'Open in YouTube',
+                            onPressed: () => openExternal(
+                              context,
+                              Uri.https('www.youtube.com', '/watch', {
+                                'v': player.current!.id,
+                              }),
+                            ),
+                            icon: const Icon(Icons.open_in_new),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (player.buffering)
+                    const LinearProgressIndicator(minHeight: 2),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.fromLTRB(12, 4, 4, 0),
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            player.error!,
-                            style: Theme.of(context).textTheme.bodySmall,
+                          child: InkWell(
+                            onTap: openQueue,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  player.current?.title ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  player.current?.channel ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        TextButton(
-                          onPressed: player.retry,
-                          child: const Text('Retry'),
                         ),
                         IconButton(
-                          tooltip: 'Open in YouTube',
-                          onPressed: () => openExternal(
-                            context,
-                            Uri.https('www.youtube.com', '/watch', {
-                              'v': player.current!.id,
-                            }),
+                          tooltip: app.isFavorite(player.current!)
+                              ? 'Unlike song'
+                              : 'Like song',
+                          onPressed: () => app.toggleFavorite(player.current!),
+                          icon: Icon(
+                            app.isFavorite(player.current!)
+                                ? Icons.favorite
+                                : Icons.favorite_border,
                           ),
-                          icon: const Icon(Icons.open_in_new),
+                        ),
+                        IconButton(
+                          tooltip: 'Close player',
+                          onPressed: player.stop,
+                          icon: const Icon(Icons.close),
                         ),
                       ],
                     ),
                   ),
-                if (player.buffering)
-                  const LinearProgressIndicator(minHeight: 2),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 4, 0),
-                  child: Row(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: openQueue,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                player.current?.title ?? '',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                player.current?.channel ?? '',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                       IconButton(
-                        tooltip: app.isFavorite(player.current!)
-                            ? 'Unlike song'
-                            : 'Like song',
-                        onPressed: () => app.toggleFavorite(player.current!),
+                        tooltip: 'Previous song',
+                        onPressed: () => player.next(backwards: true),
+                        icon: const Icon(Icons.skip_previous_rounded),
+                      ),
+                      IconButton.filled(
+                        tooltip: player.playing ? 'Pause' : 'Play',
+                        onPressed: player.toggle,
                         icon: Icon(
-                          app.isFavorite(player.current!)
-                              ? Icons.favorite
-                              : Icons.favorite_border,
+                          player.playing
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Close player',
-                        onPressed: player.stop,
-                        icon: const Icon(Icons.close),
+                        tooltip: 'Next song',
+                        onPressed: player.next,
+                        icon: const Icon(Icons.skip_next_rounded),
+                      ),
+                      IconButton(
+                        tooltip: 'Queue & playback controls',
+                        onPressed: openQueue,
+                        icon: const Icon(Icons.queue_music),
                       ),
                     ],
                   ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      tooltip: 'Previous song',
-                      onPressed: () => player.next(backwards: true),
-                      icon: const Icon(Icons.skip_previous_rounded),
-                    ),
-                    IconButton.filled(
-                      tooltip: player.playing ? 'Pause' : 'Play',
-                      onPressed: player.toggle,
-                      icon: Icon(
-                        player.playing
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Next song',
-                      onPressed: player.next,
-                      icon: const Icon(Icons.skip_next_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'Queue & playback controls',
-                      onPressed: openQueue,
-                      icon: const Icon(Icons.queue_music),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

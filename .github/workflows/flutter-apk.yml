@@ -2,7 +2,7 @@ name: Flutter Android APK
 
 on:
   push:
-    branches: [main, 'codex/**']
+    branches: [main]
     paths: ['flutter/**', '.github/workflows/flutter-apk.yml']
     tags: ['android-v*']
   pull_request:

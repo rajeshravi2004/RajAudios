@@ -326,7 +326,8 @@ class _AppShellState extends State<AppShell> {
           builder: (context, _) => LayoutBuilder(
             builder: (context, constraints) {
               final showPlayer = widget.player.current != null;
-              final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+              // Scaffold removes keyboard insets from its body's MediaQuery.
+              final keyboardOpen = View.of(context).viewInsets.bottom > 0;
               final navigator = Navigator(
                 key: _navigator,
                 onGenerateRoute: (_) =>
@@ -334,6 +335,7 @@ class _AppShellState extends State<AppShell> {
               );
               final dock = PlayerDock(
                 key: _dockKey,
+                hideForKeyboard: keyboardOpen,
                 app: widget.app,
                 player: widget.player,
                 openQueue: () =>
@@ -354,7 +356,7 @@ class _AppShellState extends State<AppShell> {
                 children: [
                   Expanded(child: navigator),
                   Offstage(
-                    offstage: !showPlayer || keyboardOpen,
+                    offstage: !showPlayer,
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
                         maxHeight: math.min(360, constraints.maxHeight * 0.6),
