@@ -1,7 +1,7 @@
 {
   "name": "rajaudios",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -16,7 +16,7 @@
     "electron": "electron .",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder",
-    "electron:build:win": "npm run build && electron-builder --win",
+    "electron:build:win": "npm run build && node scripts/build-desktop.mjs",
     "homepage": "https://github.com/rajeshravi2004/RajAudios.git"
   },
   "dependencies": {
@@ -77,7 +77,7 @@
           ]
         }
       ],
-      "icon": "public/fav.jpg"
+      "icon": "public/icon.png"
     },
     "nsis": {
       "oneClick": false,

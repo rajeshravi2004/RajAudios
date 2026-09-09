@@ -4,19 +4,22 @@ The native Android version of Rajify, alongside the React website and Electron W
 
 <p>
   <img src="docs/screenshots/home.png" width="260" alt="Native Rajify discovery screen on Android" />
-  <img src="docs/screenshots/player.png" width="260" alt="YouTube video playing inside the native Rajify app" />
+  <img src="docs/screenshots/player.png" width="260" alt="Song mode artwork and playback controls in Rajify" />
+  <img src="docs/screenshots/notification.png" width="260" alt="Android media notification with playback controls" />
 </p>
 
 ## Features
 
-**[Download the Android APK directly](https://github.com/rajeshravi2004/RajAudios/releases/download/flutter-v1.0.0-preview.1/rajify-android.apk)** (54 MB, Android 7.0+, no GitHub sign-in required).
-The [first preview release](https://github.com/rajeshravi2004/RajAudios/releases/tag/flutter-v1.0.0-preview.1) includes a SHA-256 checksum and uses test signing.
+**[Download the Android APK directly](https://github.com/rajeshravi2004/RajAudios/releases/download/flutter-v1.1.0-preview.2/rajify-android.apk)** (59 MB, Android 7.0+, no GitHub sign-in required).
+The [mobile player preview](https://github.com/rajeshravi2004/RajAudios/releases/tag/flutter-v1.1.0-preview.2) includes a SHA-256 checksum and uses test signing.
 
 - Native Material 3 interface with Rajify's violet theme, dark/light/device appearance, phone and landscape layouts.
 - Discovery in all 20 languages supported by the website: trending songs, new releases, popular songs, playlists, history-based suggestions, and continue listening.
 - Song/artist search, playlist search, recent searches, regional charts, pagination, loading/error/retry states, and music quality filtering.
-- Local liked songs, playlist creation/rename/delete, adding/removing songs, saving loaded YouTube playlist songs, and bounded listening history.
-- Persistent YouTube player across navigation, play/pause, previous/next, seek, volume, shuffle, repeat-one/repeat-all, autoplay-next, likes, play-next, and a reorderable queue.
+- Local liked songs, playlist creation/rename/delete, visible add/remove actions, an Add songs search inside each playlist, duplicate prevention, saving loaded YouTube playlist songs, and bounded listening history.
+- Song mode by default, a compact bottom player, an expanded artwork player, and an explicit Song/Video switch. Mode changes preserve the track, queue, and playback position.
+- Persistent YouTube player across navigation, play/pause, previous/next, seek, mute/volume, shuffle, repeat-one/repeat-all, autoplay-next, likes, play-next, and a reorderable queue.
+- Android foreground media service with notification, lock-screen, and headset playback controls, track metadata/artwork, and audio-focus/headphone-disconnection handling.
 - Guest listening, Google OAuth through Supabase, persisted sessions, and cross-device preference sync using the existing `user_preferences` table and RLS policies.
 - Owner user listing/pagination, individual deletion, and bulk deletion through the existing authenticated `/api/admin-users` endpoint. Every request is authorized on the server; owner deletion remains protected.
 - Android Bluetooth and sound-settings shortcuts, session-only personal YouTube API key fallback, and local storage controls.
@@ -85,7 +88,7 @@ Transfer the APK to an Android phone and open it. Allow installation from the br
 
 The [Flutter Android APK workflow](../.github/workflows/flutter-apk.yml) runs for changes to Flutter on main and pull requests, and can be run manually once present on the default branch.
 
-1. Open **Actions ? Flutter Android APK** and select a successful run.
+1. Open **Actions > Flutter Android APK** and select a successful run.
 2. Download **rajify-android-apk** under **Artifacts** (GitHub sign-in required).
 3. Extract the ZIP. It contains `rajify-android.apk` and `SHA256SUMS.txt`.
 
@@ -121,7 +124,7 @@ git push origin android-v1.0.0
 
 ## Android platform differences
 
-- All navigation, discovery, search, library, settings, and player controls are Flutter widgets. The official YouTube player remains visible while music plays; this build does not extract audio streams, provide hidden audio-only playback, or implement background/lock-screen playback. It pauses when the app leaves the foreground or the keyboard temporarily replaces the player area. Availability of particular videos depends on YouTube's embedding/region restrictions.
+- All navigation, discovery, search, library, settings, and player controls are Flutter widgets. Song mode minimizes the embedded YouTube view; selecting Video displays it. Music continues while searching, switching apps, or locking the phone, using an Android foreground media service. Closing the player, signing out, or removing the task from recent apps stops playback. Playback still depends on internet access, YouTube availability, and Android battery/process management; it is not offline playback or a separate audio download.
 - Android chooses the system audio output. Settings opens native Bluetooth pairing and sound settings. Dual Audio/LE Audio sharing depends on the phone and headphones. Electron's per-output volume, mono mixing, delay adjustment, and capture-based multi-device routing are not available here.
 - Local likes/playlists/history are independent from the browser's IndexedDB. Signed-in **preferences** share the existing web schema. Sync is not a live collaborative editing system.
 - Google OAuth, owner administration, audible playback, and Bluetooth need device/account/network validation. Automated tests do not claim real headset synchronization or replace signing into Google on a device.
@@ -136,7 +139,9 @@ flutter test
 
 Tests cover YouTube metadata/playlist IDs, filtering, queue reorder/remove/repeat/shuffle, library persistence and history limits, request deduplication/pagination, key routing and removal, quota/invalid responses, native guest/library navigation, and stale search response rejection. No tests delete real users or consume real account credentials.
 
-The universal release APK was also installed and launched on an Android 16 / API 36 emulator. Guest discovery fetched live music, and an embedded music video reached the playing state. The screenshots above were captured from that Android app. This does not establish audible output/headset behavior or Google OAuth/account-administration success.
+All 14 Flutter tests pass, including small-screen/landscape player layouts, default Song mode, mode changes retaining playback state, notification commands, and playlist search/add/remove persistence. The universal release APK was installed on an Android 16 / API 36 emulator. Live playback continued while Android Settings was foregrounded and while the device was asleep; Android reported an active audio track, and lock-screen pause/resume advanced the actual playhead. Song/Video switching was checked in the installed APK. The screenshots above came from that app. Physical headset behavior and completing Google sign-in still need a device/account check.
+
+Background playback uses the pinned Android WebView lifecycle patch in [`android/patches/webview_flutter_android/`](android/patches/webview_flutter_android/). Rebase it when upgrading that plugin; the Gradle build substitutes the patched source without modifying the Pub cache.
 
 ## Source layout
 
@@ -146,6 +151,7 @@ lib/models.dart             Tracks, playlists, settings, content filtering
 lib/app_state.dart          Local persistence, OAuth, preference sync
 lib/player_state.dart       Queue model and YouTube playback lifecycle
 lib/services/music_api.dart Shared API, session-key fallback, cache, pagination
+lib/services/background_audio.dart Android media session, notification and headset events
 lib/ui/                     Native browse/library/settings/player screens
 android/                    Android host, deep links, system settings, signing
 config/                     Public build configuration

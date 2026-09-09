@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { AddToPlaylistButton } from '../features/library/PlaylistActions.jsx'
 import { PlayIcon, PauseIcon } from '@heroicons/react/24/solid'
 import { HeartIcon, QueueListIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
@@ -10,9 +11,9 @@ import { usePlayer } from '../stores/playerStore.jsx'
 import { useLibrary } from '../stores/libraryStore.jsx'
 import { formatDuration, formatCount } from '../utils/formatters.js'
 
-export function TrackList({ 
-  tracks, 
-  showIndex = true, 
+export function TrackList({
+  tracks,
+  showIndex = true,
   showDuration = true,
   showViews = false,
   onPlay,
@@ -42,10 +43,10 @@ export function TrackList({
     <div className="space-y-1">
       {/* Header row */}
       <div className="grid items-center px-3 mb-2"
-        style={{ 
-          gridTemplateColumns: showIndex 
-            ? `${showIndex ? '40px ' : ''}1fr${showDuration ? ' 60px' : ''}${onRemove ? ' 40px' : ''}` 
-            : `1fr${showDuration ? ' 60px' : ''}`,
+        style={{
+          gridTemplateColumns: showIndex
+            ? `40px minmax(0, 1fr) auto${showDuration ? ' 60px' : ''}`
+            : `minmax(0, 1fr) auto${showDuration ? ' 60px' : ''}`,
           color: 'var(--text-muted)',
           fontSize: '12px',
           fontWeight: 600,
@@ -57,8 +58,8 @@ export function TrackList({
       >
         {showIndex && <span className="text-center">#</span>}
         <span>Title</span>
+        <span>Actions</span>
         {showDuration && <span className="text-right">Time</span>}
-        {onRemove && <span />}
       </div>
 
       {tracks.map((track, index) => {
@@ -70,10 +71,10 @@ export function TrackList({
           <div
             key={`${track.id}-${index}`}
             className={`track-row group ${isActive ? 'active' : ''}`}
-            style={{ 
-              gridTemplateColumns: showIndex 
-                ? `${showIndex ? '40px ' : ''}1fr auto${showDuration ? ' 60px' : ''}${onRemove ? ' 32px' : ''}`
-                : `1fr auto${showDuration ? ' 60px' : ''}`,
+            style={{
+              gridTemplateColumns: showIndex
+                ? `40px minmax(0, 1fr) auto${showDuration ? ' 60px' : ''}`
+                : `minmax(0, 1fr) auto${showDuration ? ' 60px' : ''}`,
               display: 'grid',
               alignItems: 'center',
               gap: '12px',
@@ -151,8 +152,8 @@ export function TrackList({
               </div>
             </div>
 
-            {/* Action buttons (shown on hover) */}
-            <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Always available on touch screens and with keyboard navigation. */}
+            <div className="track-actions flex items-center gap-1 flex-shrink-0">
               <button
                 onClick={(e) => { e.stopPropagation(); toggleFavorite(track) }}
                 className="icon-btn"
@@ -172,12 +173,13 @@ export function TrackList({
               >
                 <QueueListIcon className="h-4 w-4" />
               </button>
+              <AddToPlaylistButton track={track} />
               {onRemove && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onRemove(track.id) }}
                   className="icon-btn text-red-400 hover:text-red-300"
-                  title="Remove"
-                  aria-label="Remove track"
+                  title="Remove from playlist"
+                  aria-label={`Remove ${track.title} from playlist`}
                 >
                   <TrashIcon className="h-4 w-4" />
                 </button>

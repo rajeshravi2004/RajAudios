@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
-  { ignores: ['dist', 'electron', 'flutter/**'] },
+  { ignores: ['dist', 'release/**', 'electron', 'flutter/**'] },
   {
     files: ['vite.config.js', 'playwright*.config.js', 'tests/desktop/**/*.js', 'api/**/*.js'],
     languageOptions: {

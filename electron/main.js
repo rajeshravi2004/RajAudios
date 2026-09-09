@@ -102,7 +102,7 @@ function createWindow() {
       allowRunningInsecureContent: true,
       sandbox: false
     },
-    icon: join(__dirname, '../public/fav.jpg'),
+    icon: join(__dirname, isDev ? '../public/icon.png' : '../dist/icon.png'),
     titleBarStyle: 'default',
     frame: true,
     show: false,
@@ -255,7 +255,21 @@ const YOUTUBE_BASE = 'https://www.googleapis.com/youtube/v3'
 
 const ytFetch = async (endpoint, params) => {
   if (YOUTUBE_API_KEYS.length === 0) {
-    return { error: 'NO_API_KEY', message: 'YouTube API key not configured. Add YOUTUBE_API_KEYS to .env' }
+    // Installed apps use the same server proxy as Android. Shared keys stay on
+    // the server; listeners do not need a developer .env file to search music.
+    const url = new URL('https://rajaudios.vercel.app/api/youtube')
+    url.searchParams.set('endpoint', endpoint)
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null) url.searchParams.set(key, String(value))
+    }
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(20000) })
+      const body = await response.json()
+      if (!response.ok && !body.error) return { error: 'API_ERROR', message: 'Music search is unavailable. Try again.' }
+      return body
+    } catch {
+      return { error: 'NETWORK_ERROR', message: 'Could not reach music search. Check your connection and try again.' }
+    }
   }
 
   const maxAttempts = YOUTUBE_API_KEYS.length

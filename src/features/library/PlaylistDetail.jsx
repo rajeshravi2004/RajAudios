@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { PlayIcon, ArrowPathIcon, BookmarkIcon, ArrowLeftIcon } from '@heroicons/react/24/solid'
+import { PlayIcon, ArrowPathIcon, BookmarkIcon, ArrowLeftIcon, PlusIcon } from '@heroicons/react/24/solid'
 import { TrackList } from '../../components/TrackList.jsx'
 import { SkeletonPlaylistHeader, SkeletonTrackRow } from '../../components/ui/SkeletonLoader.jsx'
 import { ErrorState } from '../../components/ui/ErrorState.jsx'
@@ -12,6 +12,7 @@ import { useLibrary } from '../../stores/libraryStore.jsx'
 import { getPlaylistTracks, enrichTracks } from '../../services/youtubeService.js'
 import { shuffleArray, formatDuration } from '../../utils/formatters.js'
 import { useDialog } from '../../components/ui/Dialog.jsx'
+import { PlaylistSongPicker } from './PlaylistActions.jsx'
 
 export function PlaylistDetail({ playlist, onBack }) {
   const [tracks, setTracks] = useState([])
@@ -195,19 +196,22 @@ export function PlaylistDetail({ playlist, onBack }) {
  */
 export function UserPlaylistDetail({ playlist, onBack }) {
   const { playTrack } = usePlayer()
+  const [addingSongs, setAddingSongs] = useState(false)
   const { removeTrackFromPlaylist } = useLibrary()
   const [tracks, setTracks] = useState(playlist.tracks || [])
 
   // Keep in sync with library & enrich missing metadata
   useEffect(() => {
+    let active = true
     const raw = playlist.tracks || []
     setTracks(raw)
     const hasMissing = raw.some(t => !t.title || t.title.startsWith('Track ') || t.channel === 'Unknown Artist' || !t.thumbnail)
     if (hasMissing) {
       enrichTracks(raw).then(enriched => {
-        setTracks(enriched)
+        if (active) setTracks(enriched)
       })
     }
+    return () => { active = false }
   }, [playlist.tracks])
 
   const handleRemove = async (trackId) => {
@@ -218,12 +222,13 @@ export function UserPlaylistDetail({ playlist, onBack }) {
   return (
     <div className="page-scroll fade-in">
       <div className="page-content">
+        {addingSongs && <PlaylistSongPicker playlist={playlist} onClose={() => setAddingSongs(false)} />}
         <button onClick={onBack} className="flex items-center gap-2 mb-6 text-sm"
           style={{ color: 'var(--text-muted)' }}>
           <ArrowLeftIcon className="h-4 w-4" /> Back
         </button>
 
-        <div className="flex items-end gap-6 mb-8">
+        <div className="playlist-detail-header flex items-end gap-6 mb-8">
           <div className="w-48 h-48 rounded-2xl overflow-hidden flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, var(--accent-muted), var(--bg-elevated))' }}>
             {tracks[0]?.thumbnail ? (
@@ -240,6 +245,8 @@ export function UserPlaylistDetail({ playlist, onBack }) {
             <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
               {tracks.length} tracks
             </p>
+            <div className="flex gap-3 flex-wrap">
+            <button className="btn-secondary" onClick={() => setAddingSongs(true)}><PlusIcon className="h-5 w-5" /> Add songs</button>
             <button
               onClick={() => tracks.length > 0 && playTrack(tracks[0], tracks, 0)}
               disabled={tracks.length === 0}
@@ -249,6 +256,7 @@ export function UserPlaylistDetail({ playlist, onBack }) {
               <PlayIcon className="h-5 w-5" />
               Play All
             </button>
+            </div>
           </div>
         </div>
 

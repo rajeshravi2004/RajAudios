@@ -132,7 +132,7 @@ class SettingsPage extends StatelessWidget {
             label: const Text('Open sound settings'),
           ),
           const Text(
-            'The Windows app’s independent output volume and delay controls are not available on Android. Playback pauses when Rajify leaves the foreground.',
+            'The Windows app’s independent output volume and delay controls are not available on Android. Music continues when you switch apps or lock your phone. Use the notification or lock-screen controls to play, pause, seek, or skip. Closing the player or dismissing Rajify from recent apps stops playback.',
           ),
           _heading(context, 'YouTube API access'),
           Text(
@@ -200,7 +200,7 @@ class SettingsPage extends StatelessWidget {
           ),
           _heading(context, 'Rajify for Android'),
           const Text(
-            'Version 1.0.0 • Built with Flutter\nNative discovery, search, library, settings, and playback controls. Music streams through the YouTube player.',
+            'Version 1.1.0 • Built with Flutter\nNative discovery, search, library, settings, and playback controls. Music streams through the YouTube player.',
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -217,7 +217,7 @@ class SettingsPage extends StatelessWidget {
             onTap: () => showLicensePage(
               context: context,
               applicationName: 'Rajify',
-              applicationVersion: '1.0.0',
+              applicationVersion: '1.1.0',
             ),
           ),
           const SizedBox(height: 24),

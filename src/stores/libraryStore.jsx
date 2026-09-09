@@ -11,9 +11,17 @@ const LibraryContext = createContext(null)
 
 export function LibraryProvider({ children }) {
   const [favorites, setFavorites] = useState([]) // Array of track objects
-  const [playlists, setPlaylists] = useState([]) // User-created playlists
+  const [playlists, setPlaylistState] = useState([]) // User-created playlists
   const [history, setHistory] = useState([])     // Recently played tracks
   const historyOperationRef = useRef(Promise.resolve())
+  const playlistsRef = useRef([])
+  const playlistWritesRef = useRef(Promise.resolve())
+  const setPlaylists = useCallback(next => { playlistsRef.current = next; setPlaylistState(next) }, [])
+  const persistPlaylists = useCallback(next => {
+    setPlaylists(next)
+    playlistWritesRef.current = playlistWritesRef.current.catch(() => {}).then(() => playlistStorage.save(next))
+    return playlistWritesRef.current
+  }, [setPlaylists])
 
   // Load all library data on mount
   useEffect(() => {
@@ -56,12 +64,12 @@ export function LibraryProvider({ children }) {
           return pl
         })
       )
-      if (listsChanged) {
+      if (listsChanged && playlistsRef.current === initialLists) {
         setPlaylists(enrichedLists)
         playlistStorage.save(enrichedLists).catch(() => {})
       }
     })
-  }, [])
+  }, [setPlaylists])
 
   // ── Favorites ───────────────────────────────────────────────────────────────
   const isFavorite = useCallback((trackId) => {
@@ -85,37 +93,34 @@ export function LibraryProvider({ children }) {
   // ── Playlists ───────────────────────────────────────────────────────────────
   const createPlaylist = useCallback(async (title, tracks = []) => {
     const newPlaylist = {
-      id: `pl_${Date.now()}`,
+      id: `pl_${crypto.randomUUID()}`,
       title,
       tracks,
       thumbnail: tracks[0]?.thumbnail || null,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }
-    const next = [newPlaylist, ...playlists]
-    setPlaylists(next)
-    await playlistStorage.save(next)
+    const next = [newPlaylist, ...playlistsRef.current]
+    await persistPlaylists(next)
     return newPlaylist
-  }, [playlists])
+  }, [persistPlaylists])
 
   const updatePlaylist = useCallback(async (playlistId, updates) => {
-    const next = playlists.map(p => 
-      p.id === playlistId 
-        ? { ...p, ...updates, updatedAt: Date.now() } 
+    const next = playlistsRef.current.map(p =>
+      p.id === playlistId
+        ? { ...p, ...updates, updatedAt: Date.now() }
         : p
     )
-    setPlaylists(next)
-    await playlistStorage.save(next)
-  }, [playlists])
+    await persistPlaylists(next)
+  }, [persistPlaylists])
 
   const deletePlaylist = useCallback(async (playlistId) => {
-    const next = playlists.filter(p => p.id !== playlistId)
-    setPlaylists(next)
-    await playlistStorage.save(next)
-  }, [playlists])
+    const next = playlistsRef.current.filter(p => p.id !== playlistId)
+    await persistPlaylists(next)
+  }, [persistPlaylists])
 
   const addTrackToPlaylist = useCallback(async (playlistId, track) => {
-    const next = playlists.map(p => {
+    const next = playlistsRef.current.map(p => {
       if (p.id !== playlistId) return p
       const alreadyIn = p.tracks.some(t => t.id === track.id)
       if (alreadyIn) return p
@@ -126,18 +131,17 @@ export function LibraryProvider({ children }) {
         updatedAt: Date.now(),
       }
     })
-    setPlaylists(next)
-    await playlistStorage.save(next)
-  }, [playlists])
+    await persistPlaylists(next)
+  }, [persistPlaylists])
 
   const removeTrackFromPlaylist = useCallback(async (playlistId, trackId) => {
-    const next = playlists.map(p => {
+    const next = playlistsRef.current.map(p => {
       if (p.id !== playlistId) return p
-      return { ...p, tracks: p.tracks.filter(t => t.id !== trackId), updatedAt: Date.now() }
+      const tracks = p.tracks.filter(t => t.id !== trackId)
+      return { ...p, tracks, thumbnail: tracks[0]?.thumbnail || null, updatedAt: Date.now() }
     })
-    setPlaylists(next)
-    await playlistStorage.save(next)
-  }, [playlists])
+    await persistPlaylists(next)
+  }, [persistPlaylists])
 
   // ── History ─────────────────────────────────────────────────────────────────
   const addToHistory = useCallback(async (track, completionPct = 0) => {

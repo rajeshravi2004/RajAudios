@@ -84,65 +84,168 @@ class _HomePageState extends State<HomePage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
+          Text(
+            'Good ${hour < 12
+                ? 'morning'
+                : hour < 17
+                ? 'afternoon'
+                : 'evening'}${app.user == null ? '' : ', ${app.name.split(' ').first}'}',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Find your rhythm.',
+            style: Theme.of(context).textTheme.headlineLarge
+                ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -1),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 44,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final language in {
+                  app.language,
+                  'tamil',
+                  'hindi',
+                  'english',
+                  'telugu',
+                })
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(label(language)),
+                      selected: app.language == language,
+                      showCheckmark: false,
+                      onSelected: (_) =>
+                          app.updateSettings({'language': language}),
+                    ),
+                  ),
+                ActionChip(
+                  label: const Text('More'),
+                  avatar: const Icon(Icons.tune_rounded, size: 16),
+                  onPressed: () => showModalBottomSheet<void>(
+                    context: context,
+                    showDragHandle: true,
+                    builder: (context) => SafeArea(
+                      child: ListView(
+                        children: [
+                          for (final language in languages)
+                            ListTile(
+                              title: Text(label(language)),
+                              selected: app.language == language,
+                              trailing: app.language == language
+                                  ? const Icon(Icons.check_rounded)
+                                  : null,
+                              onTap: () {
+                                app.updateSettings({'language': language});
+                                Navigator.pop(context);
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               gradient: const LinearGradient(
-                colors: [Color(0xff5b21b6), Color(0xff23113f)],
+                colors: [Color(0xff743ce0), Color(0xff352063)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                const Text(
-                  'YOUR WORLD. YOUR SOUND.',
-                  style: TextStyle(
-                    color: Color(0xffddd0ff),
-                    fontSize: 11,
-                    letterSpacing: 2,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'MADE FOR YOUR MOOD',
+                        style: TextStyle(
+                          color: Color(0xffddd0ff),
+                          fontSize: 10,
+                          letterSpacing: 1.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${label(app.language)} favorites',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'A fresh soundtrack for your day.',
+                        style: TextStyle(color: Color(0xffddd0ff)),
+                      ),
+                      const SizedBox(height: 14),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xff5323a4),
+                        ),
+                        onPressed: () async {
+                          try {
+                            final page =
+                                await _sections['Trending in ${label(app.language)}'];
+                            final tracks = app.filter(page?.items ?? []);
+                            if (tracks.isNotEmpty) {
+                              await widget.player.play(tracks.first, tracks);
+                            }
+                          } catch (error) {
+                            if (context.mounted) toast(context, '$error');
+                          }
+                        },
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: const Text('Start listening'),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Good ${hour < 12
-                      ? 'morning'
-                      : hour < 17
-                      ? 'afternoon'
-                      : 'evening'}${app.user == null ? '' : ', ${app.name.split(' ').first}'}',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Find your next favorite song.',
-                  style: TextStyle(color: Color(0xffddd0ff)),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: app.language,
-                  key: ValueKey(app.language),
-                  decoration: const InputDecoration(
-                    labelText: 'Music language',
-                    filled: true,
-                  ),
-                  items: languages
-                      .map(
-                        (l) =>
-                            DropdownMenuItem(value: l, child: Text(label(l))),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) app.updateSettings({'language': value});
-                  },
+                const SizedBox(width: 12),
+                const Icon(
+                  Icons.graphic_eq_rounded,
+                  color: Color(0xffb79ae8),
+                  size: 56,
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _shortcut(
+                  'Liked songs',
+                  '${app.favorites.length} saved',
+                  Icons.favorite_rounded,
+                  1,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _shortcut(
+                  'Recently played',
+                  'Your listening history',
+                  Icons.history_rounded,
+                  2,
+                ),
+              ),
+            ],
           ),
           if (app.history.isNotEmpty)
             _shelf('Continue listening', app.history.take(10).toList()),
@@ -197,6 +300,47 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _shortcut(
+    String title,
+    String subtitle,
+    IconData icon,
+    int tab,
+  ) => Material(
+    color: Theme.of(context).colorScheme.surfaceContainer,
+    borderRadius: BorderRadius.circular(16),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => LibraryPage(
+            app: widget.app,
+            player: widget.player,
+            initialTab: tab,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
+            const SizedBox(height: 10),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
   Widget _heading(String title) => Padding(
     padding: const EdgeInsets.only(top: 28, bottom: 16),
     child: Text(
@@ -215,7 +359,7 @@ class _HomePageState extends State<HomePage> {
         ),
       if (tracks.isNotEmpty)
         SizedBox(
-          height: 228,
+          height: 240,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: tracks.length,
@@ -223,7 +367,7 @@ class _HomePageState extends State<HomePage> {
             itemBuilder: (context, index) {
               final track = tracks[index];
               return SizedBox(
-                width: 154,
+                width: 160,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: () => widget.player.play(track, tracks),
@@ -233,7 +377,7 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Stack(
                         children: [
-                          Artwork(track.thumbnail, size: 154),
+                          Artwork(track.thumbnail, size: 160),
                           Positioned(
                             right: 6,
                             bottom: 6,
@@ -398,6 +542,17 @@ class _SearchPageState extends State<SearchPage> {
     final visible = widget.app.filter(_tracks);
     return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              widget.trending ? 'Trending now' : 'Search',
+              style: Theme.of(context).textTheme.headlineMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.all(16),
           child: widget.trending

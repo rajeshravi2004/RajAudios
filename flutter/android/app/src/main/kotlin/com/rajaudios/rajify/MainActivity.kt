@@ -2,16 +2,19 @@ package com.rajaudios.rajify
 
 import android.content.Intent
 import android.provider.Settings
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.rajaudios.rajify/device")
             .setMethodCallHandler { call, result ->
-                if (call.method != "openSettings") {
+                if (call.method == "moveToBackground") {
+                    moveTaskToBack(true)
+                    result.success(null)
+                } else if (call.method != "openSettings") {
                     result.notImplemented()
                 } else {
                     val action = when (call.arguments as? String) {

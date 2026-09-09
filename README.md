@@ -6,17 +6,27 @@ A focused music discovery experience available as a **React web app**, an **Elec
 
 ### [Open Rajify](https://rajaudios.vercel.app)
 
+## Windows EXE download
+
+### [Download Rajify for Windows](https://github.com/rajeshravi2004/RajAudios/releases/download/flutter-v1.1.0-preview.2/rajify-windows-setup.exe)
+
+Windows x64 installer, version 1.1.0. Build it locally with `npm run electron:build:win`; the installer is written to `release/`. Installed copies use the hosted music API, with no developer API-key file required.
+
 ## Flutter Android app & APK download
 
-### [Download Rajify Android APK](https://github.com/rajeshravi2004/RajAudios/releases/download/flutter-v1.0.0-preview.1/rajify-android.apk)
+### [Download Rajify Android APK](https://github.com/rajeshravi2004/RajAudios/releases/download/flutter-v1.1.0-preview.2/rajify-android.apk)
 
-Direct download, no GitHub sign-in required. Android 7.0+; approximately 54 MB.
-This first preview uses test signing. [Release notes and checksum](https://github.com/rajeshravi2004/RajAudios/releases/tag/flutter-v1.0.0-preview.1).
+Direct download, no GitHub sign-in required. Android 7.0+; approximately 59 MB.
+This preview uses test signing. [Release notes and checksum](https://github.com/rajeshravi2004/RajAudios/releases/tag/flutter-v1.1.0-preview.2).
 
 Rajify also has a **Flutter version** in [`flutter/`](flutter/). Discovery, search,
 trending, playlists, likes, listening history, queue controls, settings, and account
 administration are built with native Flutter widgets. The app uses the existing
 Rajify API; only YouTube playback uses an embedded YouTube player.
+
+The mobile player starts in **Song mode** with a compact bottom bar. Tap it for
+artwork, seeking, shuffle, repeat, volume, and queue controls. Choose **Video**
+to watch. Android media controls support background and lock-screen listening.
 
 - **Development builds:** open [Flutter Android APK builds](https://github.com/rajeshravi2004/RajAudios/actions/workflows/flutter-apk.yml), select a successful run, and download **rajify-android-apk** under **Artifacts**. GitHub sign-in is required for these temporary build artifacts; use the direct APK link above for the published preview.
 - **Versioned downloads:** signed Android releases appear under [GitHub Releases](https://github.com/rajeshravi2004/RajAudios/releases) when an `android-v*` tag is published with release signing configured.
@@ -27,6 +37,10 @@ Likes, playlists, and history stay on each device, matching the web app's local
 library model. Signed-in preferences sync between the web, desktop, and Flutter
 apps. Android uses the phone's Bluetooth/media output settings; the Windows
 multi-output audio router is a desktop feature.
+
+## Editing playlists
+
+On web, Windows, and Android, open one of your playlists and choose **Add songs** to search and add music. Use the visible **Remove from playlist** action beside a song to remove it. You can also use **Add to playlist** on a song or in the player, choose an existing playlist, or create one. Duplicate songs are prevented and edits are saved locally. YouTube-curated playlists can be saved into your own library before editing.
 
 ## Highlights
 

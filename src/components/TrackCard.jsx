@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { AddToPlaylistButton } from '../features/library/PlaylistActions.jsx'
 import { PlayIcon } from '@heroicons/react/24/solid'
 import { HeartIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
@@ -124,6 +125,8 @@ export function TrackCard({ track, contextTracks, explanation, onPlay, size = 'm
           )}
         </button>
       </div>
+
+      <div className="flex justify-end"><AddToPlaylistButton track={track} /></div>
 
       {/* Info */}
       <div className="min-w-0">

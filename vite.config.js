@@ -9,7 +9,8 @@ export default defineConfig({
     react()
   ],
   server: {
-    port: 5173
+    port: 5173,
+    watch: { ignored: ['**/flutter/**', '**/release/**'] }
   },
   build: {
     outDir: 'dist',

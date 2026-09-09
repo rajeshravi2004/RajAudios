@@ -56,6 +56,8 @@ class PlayQueue {
   }
 }
 
+enum MediaMode { song, video }
+
 class PlayerStateModel extends ChangeNotifier {
   PlayerStateModel(this.app);
   final AppState app;
@@ -67,6 +69,36 @@ class PlayerStateModel extends ChangeNotifier {
   int position = 0, duration = 0;
   String? error, _recorded;
   Track? get current => queue.current;
+  MediaMode mediaMode = MediaMode.song;
+  bool expanded = false;
+  double _volumeBeforeMute = 0.8;
+
+  void expand() {
+    expanded = true;
+    notifyListeners();
+  }
+
+  void minimize() {
+    expanded = false;
+    mediaMode = MediaMode.song;
+    notifyListeners();
+  }
+
+  void setMediaMode(MediaMode mode) {
+    mediaMode = mode;
+    expanded = true;
+    notifyListeners();
+  }
+
+  Future<void> toggleMute() async {
+    final currentVolume = (app.settings['volume'] as num).toDouble();
+    if (currentVolume > 0) {
+      _volumeBeforeMute = currentVolume;
+      await volume(0);
+    } else {
+      await volume(_volumeBeforeMute);
+    }
+  }
 
   void _ensureController() {
     if (controller != null) return;
@@ -139,12 +171,9 @@ class PlayerStateModel extends ChangeNotifier {
   }
 
   Future<void> retry() => _load();
-  Future<void> toggle() => _run(() async {
-    if (playing) {
-      await controller?.pauseVideo();
-    } else {
-      await controller?.playVideo();
-    }
+  Future<void> toggle() => playing ? pause() : resume();
+  Future<void> resume() => _run(() async {
+    await controller?.playVideo();
   });
   Future<void> pause() => _run(() async {
     await controller?.pauseVideo();
@@ -217,6 +246,8 @@ class PlayerStateModel extends ChangeNotifier {
     controller?.close();
     controller = null;
     playing = false;
+    expanded = false;
+    mediaMode = MediaMode.song;
     notifyListeners();
   }
 

@@ -120,7 +120,7 @@ function AppShell() {
     if (currentUserPlaylist) {
       return (
         <UserPlaylistDetail
-          playlist={currentUserPlaylist}
+          playlist={playlists.find(item => item.id === currentUserPlaylist.id) || currentUserPlaylist}
           onBack={() => setCurrentUserPlaylist(null)}
         />
       )

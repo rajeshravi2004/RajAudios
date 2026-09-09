@@ -1,7 +1,7 @@
 name: rajify
 description: Native Flutter music discovery, library and YouTube player for Rajify.
 publish_to: none
-version: 1.0.0+1
+version: 1.1.0+2
 environment:
   sdk: ^3.13.0
 dependencies:
@@ -13,10 +13,14 @@ dependencies:
   supabase_flutter: ^2.17.2
   youtube_player_iframe: ^6.0.2
   url_launcher: ^6.3.2
+  audio_service: ^0.18.19
+  audio_session: ^0.2.4
+# Native lifecycle patch in android/patches is based on this exact version.
+dependency_overrides:
+  webview_flutter_android: 4.14.1
+
 dev_dependencies:
   flutter_test:
-    sdk: flutter
-  integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 flutter:

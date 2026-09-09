@@ -1,12 +1,10 @@
-import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
+import 'services/background_audio.dart';
 import 'player_state.dart';
 import 'services/music_api.dart';
 import 'ui/browse.dart';
@@ -35,24 +33,26 @@ Future<void> main() async {
     supabase: client,
   );
   app.message = startupMessage;
-  runApp(RajifyApp(app: app));
+  final player = PlayerStateModel(app);
+  await initializeBackgroundAudio(player);
+  runApp(RajifyApp(app: app, player: player));
 }
 
 class RajifyApp extends StatefulWidget {
-  const RajifyApp({super.key, required this.app});
+  const RajifyApp({super.key, required this.app, this.player});
+  final PlayerStateModel? player;
   final AppState app;
   @override
   State<RajifyApp> createState() => _RajifyAppState();
 }
 
-class _RajifyAppState extends State<RajifyApp> with WidgetsBindingObserver {
+class _RajifyAppState extends State<RajifyApp> {
   late final PlayerStateModel _player;
   final _messenger = GlobalKey<ScaffoldMessengerState>();
   @override
   void initState() {
     super.initState();
-    _player = PlayerStateModel(widget.app);
-    WidgetsBinding.instance.addObserver(this);
+    _player = widget.player ?? PlayerStateModel(widget.app);
     widget.app.addListener(_message);
     WidgetsBinding.instance.addPostFrameCallback((_) => _message());
   }
@@ -69,28 +69,8 @@ class _RajifyAppState extends State<RajifyApp> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.hidden) {
-      unawaited(_player.pause());
-    }
-  }
-
-  @override
-  void didChangeMetrics() {
-    // The keyboard temporarily replaces the video area on small screens.
-    // Pause first so the app never continues hidden YouTube playback.
-    if (WidgetsBinding.instance.platformDispatcher.views.any(
-      (view) => view.viewInsets.bottom > 0,
-    )) {
-      unawaited(_player.pause());
-    }
-  }
-
-  @override
   void dispose() {
     widget.app.removeListener(_message);
-    WidgetsBinding.instance.removeObserver(this);
     _player.dispose();
     super.dispose();
   }
@@ -107,7 +87,29 @@ class _RajifyAppState extends State<RajifyApp> with WidgetsBindingObserver {
       scaffoldBackgroundColor: brightness == Brightness.dark
           ? const Color(0xff09090f)
           : const Color(0xfffaf8ff),
-      appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
+      appBarTheme: AppBarTheme(
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: brightness == Brightness.dark
+            ? const Color(0xff09090f)
+            : const Color(0xfffaf8ff),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        height: 68,
+        elevation: 0,
+        backgroundColor: brightness == Brightness.dark
+            ? const Color(0xff09090f)
+            : const Color(0xfffaf8ff),
+        indicatorColor: scheme.primary.withValues(alpha: 0.16),
+        labelTextStyle: WidgetStateProperty.all(
+          const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        ),
+      ),
+      sliderTheme: const SliderThemeData(trackHeight: 3),
+      listTileTheme: const ListTileThemeData(
+        contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         border: OutlineInputBorder(
@@ -235,10 +237,15 @@ class _AppShellState extends State<AppShell> {
   final _dockKey = GlobalKey();
   final _tabState = ValueNotifier<int>(0);
   final Set<int> _visited = {0};
-  void _open(Widget page) => _navigator.currentState!.push(
-    MaterialPageRoute<void>(builder: (_) => page),
-  );
+  void _open(Widget page) {
+    widget.player.minimize();
+    _navigator.currentState!.push(
+      MaterialPageRoute<void>(builder: (_) => page),
+    );
+  }
+
   void _select(int tab) {
+    widget.player.minimize();
     _navigator.currentState?.popUntil((route) => route.isFirst);
     _visited.add(tab);
     _tabState.value = tab;
@@ -253,143 +260,161 @@ class _AppShellState extends State<AppShell> {
 
   Widget _pages() => ListenableBuilder(
     listenable: Listenable.merge([widget.app, _tabState]),
-    builder: (context, _) => IndexedStack(
-      index: _tabState.value,
-      children: [
-        HomePage(app: widget.app, player: widget.player),
-        _visited.contains(1)
-            ? SearchPage(
-                key: const ValueKey('search'),
-                app: widget.app,
-                player: widget.player,
-              )
-            : const SizedBox.shrink(),
-        _visited.contains(2)
-            ? SearchPage(
-                key: const ValueKey('trending'),
-                app: widget.app,
-                player: widget.player,
-                trending: true,
-              )
-            : const SizedBox.shrink(),
-        _visited.contains(3)
-            ? LibraryPage(app: widget.app, player: widget.player)
-            : const SizedBox.shrink(),
-      ],
+    builder: (context, _) => Material(
+      child: IndexedStack(
+        index: _tabState.value,
+        children: [
+          HomePage(app: widget.app, player: widget.player),
+          _visited.contains(1)
+              ? SearchPage(
+                  key: const ValueKey('search'),
+                  app: widget.app,
+                  player: widget.player,
+                )
+              : const SizedBox.shrink(),
+          _visited.contains(2)
+              ? SearchPage(
+                  key: const ValueKey('trending'),
+                  app: widget.app,
+                  player: widget.player,
+                  trending: true,
+                )
+              : const SizedBox.shrink(),
+          _visited.contains(3)
+              ? LibraryPage(app: widget.app, player: widget.player)
+              : const SizedBox.shrink(),
+        ],
+      ),
     ),
   );
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: false,
-    onPopInvokedWithResult: (didPop, result) async {
-      if (didPop) return;
-      if (await _navigator.currentState!.maybePop()) return;
-      if (_tabState.value != 0) {
-        _select(0);
-        return;
-      }
-      await widget.player.pause();
-      await SystemNavigator.pop();
-    },
-    child: Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                'assets/logo.jpg',
-                width: 30,
-                height: 30,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text('Rajify', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Settings',
-            onPressed: () =>
-                _open(SettingsPage(app: widget.app, player: widget.player)),
-            icon: const Icon(Icons.settings_outlined),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: ListenableBuilder(
-          listenable: widget.player,
-          builder: (context, _) => LayoutBuilder(
-            builder: (context, constraints) {
-              final showPlayer = widget.player.current != null;
-              // Scaffold removes keyboard insets from its body's MediaQuery.
-              final keyboardOpen = View.of(context).viewInsets.bottom > 0;
-              final navigator = Navigator(
-                key: _navigator,
-                onGenerateRoute: (_) =>
-                    MaterialPageRoute<void>(builder: (_) => _pages()),
-              );
-              final dock = PlayerDock(
-                key: _dockKey,
-                hideForKeyboard: keyboardOpen,
-                app: widget.app,
-                player: widget.player,
-                openQueue: () =>
-                    _open(QueuePage(app: widget.app, player: widget.player)),
-              );
-              if (showPlayer && !keyboardOpen && constraints.maxWidth >= 650) {
-                return Row(
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.player,
+    builder: (context, _) => PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (widget.player.expanded) {
+          widget.player.minimize();
+          return;
+        }
+        if (await _navigator.currentState!.maybePop()) return;
+        if (_tabState.value != 0) {
+          _select(0);
+          return;
+        }
+        await const MethodChannel('com.rajaudios.rajify/device')
+            .invokeMethod<void>('moveToBackground');
+      },
+      child: Scaffold(
+        appBar: widget.player.expanded
+            ? null
+            : AppBar(
+                title: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      width: math.min(380, constraints.maxWidth * 0.45),
-                      child: SingleChildScrollView(child: dock),
-                    ),
-                    Expanded(child: navigator),
-                  ],
-                );
-              }
-              return Column(
-                children: [
-                  Expanded(child: navigator),
-                  Offstage(
-                    offstage: !showPlayer,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: math.min(360, constraints.maxHeight * 0.6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        'assets/logo.jpg',
+                        width: 30,
+                        height: 30,
+                        fit: BoxFit.cover,
                       ),
-                      child: SingleChildScrollView(child: dock),
                     ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Rajify',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                actions: [
+                  IconButton(
+                    tooltip: 'Settings',
+                    onPressed: () => _open(
+                      SettingsPage(app: widget.app, player: widget.player),
+                    ),
+                    icon: const Icon(Icons.settings_outlined),
                   ),
                 ],
-              );
-            },
+              ),
+        body: SafeArea(
+          top: widget.player.expanded,
+          bottom: widget.player.expanded,
+          child: ListenableBuilder(
+            listenable: widget.player,
+            builder: (context, _) => LayoutBuilder(
+              builder: (context, constraints) {
+                final showPlayer = widget.player.current != null;
+                final expanded = showPlayer && widget.player.expanded;
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      bottom: showPlayer ? 86 : 0,
+                      child: ExcludeFocus(
+                        excluding: expanded,
+                        child: Offstage(
+                          offstage: expanded,
+                          child: Navigator(
+                            key: _navigator,
+                            onGenerateRoute: (_) => MaterialPageRoute<void>(
+                              builder: (_) => _pages(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (showPlayer)
+                      Positioned(
+                        left: expanded ? 0 : 10,
+                        right: expanded ? 0 : 10,
+                        bottom: expanded ? 0 : 6,
+                        height: expanded ? constraints.maxHeight : 76,
+                        child: PlayerDock(
+                          key: _dockKey,
+                          app: widget.app,
+                          player: widget.player,
+                          openQueue: () {
+                            widget.player.minimize();
+                            _open(
+                              QueuePage(app: widget.app, player: widget.player),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tabState.value,
-        onDestinationSelected: _select,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(icon: Icon(Icons.search), label: 'Search'),
-          NavigationDestination(
-            icon: Icon(Icons.trending_up),
-            label: 'Trending',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.library_music_outlined),
-            selectedIcon: Icon(Icons.library_music),
-            label: 'Library',
-          ),
-        ],
+        bottomNavigationBar: widget.player.expanded
+            ? null
+            : NavigationBar(
+                selectedIndex: _tabState.value,
+                onDestinationSelected: _select,
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home),
+                    label: 'Home',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.search),
+                    label: 'Search',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.trending_up),
+                    label: 'Trending',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.library_music_outlined),
+                    selectedIcon: Icon(Icons.library_music),
+                    label: 'Library',
+                  ),
+                ],
+              ),
       ),
     ),
   );

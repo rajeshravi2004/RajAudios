@@ -8,6 +8,7 @@
  */
 
 import { useState, useCallback } from 'react'
+import { AddToPlaylistButton } from '../library/PlaylistActions.jsx'
 import {
   PlayIcon,
   PauseIcon,
@@ -133,6 +134,7 @@ export function PlayerBar({ onToggleQueue, showQueue }) {
           </p>
         </div>
 
+        <AddToPlaylistButton track={currentTrack} />
         <button
           onClick={() => toggleFavorite(currentTrack)}
           className="icon-btn flex-shrink-0"

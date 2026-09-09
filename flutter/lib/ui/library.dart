@@ -6,7 +6,13 @@ import '../player_state.dart';
 import 'common.dart';
 
 class LibraryPage extends StatefulWidget {
-  const LibraryPage({super.key, required this.app, required this.player});
+  const LibraryPage({
+    super.key,
+    required this.app,
+    required this.player,
+    this.initialTab = 0,
+  });
+  final int initialTab;
   final AppState app;
   final PlayerStateModel player;
   @override
@@ -14,13 +20,45 @@ class LibraryPage extends StatefulWidget {
 }
 
 class _LibraryPageState extends State<LibraryPage> {
-  int _tab = 0;
+  late int _tab = widget.initialTab;
   @override
   Widget build(BuildContext context) {
     final app = widget.app;
     final tracks = _tab == 1 ? app.favorites : app.history;
     return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your library',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${app.playlists.length} playlists / ${app.favorites.length} liked songs',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Create playlist',
+                onPressed: () async {
+                  final title = await editName(context);
+                  if (title != null) app.createPlaylist(title);
+                },
+                icon: const Icon(Icons.add_rounded),
+              ),
+            ],
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.all(16),
           child: SegmentedButton<int>(
@@ -261,6 +299,20 @@ class _PlaylistPageState extends State<PlaylistPage> {
                         icon: const Icon(Icons.play_arrow),
                         label: const Text('Play all'),
                       ),
+                      if (!playlist.remote)
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => PlaylistSongPickerPage(
+                                playlist: playlist,
+                                app: widget.app,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.playlist_add_rounded),
+                          label: const Text('Add songs'),
+                        ),
                       if (playlist.remote)
                         OutlinedButton.icon(
                           onPressed: tracks.isEmpty
@@ -314,6 +366,180 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   child: const Text('Load more'),
                 ),
               ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class PlaylistSongPickerPage extends StatefulWidget {
+  const PlaylistSongPickerPage({
+    super.key,
+    required this.playlist,
+    required this.app,
+  });
+  final MusicPlaylist playlist;
+  final AppState app;
+  @override
+  State<PlaylistSongPickerPage> createState() => _PlaylistSongPickerPageState();
+}
+
+class _PlaylistSongPickerPageState extends State<PlaylistSongPickerPage> {
+  final _query = TextEditingController();
+  List<Track>? _results;
+  bool _busy = false;
+  String? _error, _next;
+  int _generation = 0;
+  Future<void> _search({bool more = false}) async {
+    if (_query.text.trim().isEmpty) return;
+    final generation = ++_generation;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final page = await widget.app.api.search(
+        _query.text.trim(),
+        widget.app.region,
+        page: more ? _next : null,
+      );
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _results = [...(more ? _results ?? [] : <Track>[]), ...page.items];
+        _next = page.nextPageToken;
+      });
+    } catch (error) {
+      if (mounted && generation == _generation) {
+        setState(() => _error = '$error');
+      }
+    } finally {
+      if (mounted && generation == _generation) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _generation++;
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.app,
+    builder: (context, _) {
+      final suggestions = {
+        for (final track in [...widget.app.favorites, ...widget.app.history])
+          track.id: track,
+      }.values.toList();
+      final tracks = widget.app.filter(_results ?? suggestions);
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Add songs'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.playlist.title,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _query,
+                    textInputAction: TextInputAction.search,
+                    onChanged: (_) {
+                      _generation++;
+                      setState(() {
+                        _results = null;
+                        _busy = false;
+                        _error = null;
+                        _next = null;
+                      });
+                    },
+                    onSubmitted: (_) => _search(),
+                    decoration: InputDecoration(
+                      labelText: 'Search songs',
+                      hintText: 'Song or artist',
+                      suffixIcon: IconButton(
+                        tooltip: 'Search songs',
+                        onPressed: _search,
+                        icon: const Icon(Icons.search_rounded),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_busy) const LinearProgressIndicator(),
+            Expanded(
+              child: ListView(
+                children: [
+                  if (_error != null) ErrorMessage(_error!, _search),
+                  if (_results == null)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
+                      child: Text('From your likes and listening history'),
+                    ),
+                  if (tracks.isEmpty && !_busy)
+                    const EmptyMessage(
+                      'Find songs for your playlist',
+                      'Search above for a song or artist.',
+                    ),
+                  for (final track in tracks)
+                    ListTile(
+                      leading: Artwork(track.thumbnail, size: 48),
+                      title: Text(
+                        track.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        track.channel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing:
+                          widget.playlist.tracks.any(
+                            (item) => item.id == track.id,
+                          )
+                          ? const Tooltip(
+                              message: 'Already in playlist',
+                              child: Icon(Icons.check_circle_rounded),
+                            )
+                          : IconButton(
+                              tooltip: 'Add ${track.title}',
+                              icon: const Icon(
+                                Icons.add_circle_outline_rounded,
+                              ),
+                              onPressed: () => widget.app.addToPlaylist(
+                                widget.playlist,
+                                track,
+                              ),
+                            ),
+                    ),
+                  if (_next != null)
+                    TextButton(
+                      onPressed: _busy ? null : () => _search(more: true),
+                      child: const Text('Load more'),
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
       );

@@ -177,7 +177,7 @@ class TrackTile extends StatelessWidget {
   final VoidCallback? onRemove;
   @override
   Widget build(BuildContext context) => ListTile(
-    leading: Artwork(track.thumbnail),
+    leading: Artwork(track.thumbnail, size: 48),
     title: Text(
       track.title,
       maxLines: 2,
@@ -192,43 +192,65 @@ class TrackTile extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
     ),
     onTap: () => player.play(track, tracks),
-    trailing: PopupMenuButton<String>(
-      tooltip: 'Track options',
-      onSelected: (action) async {
-        switch (action) {
-          case 'like':
-            app.toggleFavorite(track);
-          case 'next':
-            player.add(track, next: true);
-            toast(context, 'Added to play next');
-          case 'queue':
-            player.add(track);
-            toast(context, 'Added to queue');
-          case 'playlist':
-            await addTrackDialog(context, app, track);
-          case 'youtube':
-            await openExternal(
-              context,
-              Uri.https('www.youtube.com', '/watch', {'v': track.id}),
-            );
-          case 'remove':
-            onRemove?.call();
-        }
-      },
-      itemBuilder: (_) => [
-        PopupMenuItem(
-          value: 'like',
-          child: Text(app.isFavorite(track) ? 'Unlike song' : 'Like song'),
-        ),
-        const PopupMenuItem(value: 'next', child: Text('Play next')),
-        const PopupMenuItem(value: 'queue', child: Text('Add to queue')),
-        const PopupMenuItem(value: 'playlist', child: Text('Add to playlist')),
-        const PopupMenuItem(value: 'youtube', child: Text('Open in YouTube')),
-        if (onRemove != null)
-          const PopupMenuItem(
-            value: 'remove',
-            child: Text('Remove from playlist'),
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: onRemove != null
+              ? 'Remove from playlist'
+              : 'Add to playlist',
+          onPressed: onRemove ?? () => addTrackDialog(context, app, track),
+          icon: Icon(
+            onRemove != null
+                ? Icons.remove_circle_outline_rounded
+                : Icons.playlist_add_rounded,
           ),
+        ),
+        PopupMenuButton<String>(
+          tooltip: 'Track options',
+          onSelected: (action) async {
+            switch (action) {
+              case 'like':
+                app.toggleFavorite(track);
+              case 'next':
+                player.add(track, next: true);
+                toast(context, 'Added to play next');
+              case 'queue':
+                player.add(track);
+                toast(context, 'Added to queue');
+              case 'playlist':
+                await addTrackDialog(context, app, track);
+              case 'youtube':
+                await openExternal(
+                  context,
+                  Uri.https('www.youtube.com', '/watch', {'v': track.id}),
+                );
+              case 'remove':
+                onRemove?.call();
+            }
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem(
+              value: 'like',
+              child: Text(app.isFavorite(track) ? 'Unlike song' : 'Like song'),
+            ),
+            const PopupMenuItem(value: 'next', child: Text('Play next')),
+            const PopupMenuItem(value: 'queue', child: Text('Add to queue')),
+            const PopupMenuItem(
+              value: 'playlist',
+              child: Text('Add to playlist'),
+            ),
+            const PopupMenuItem(
+              value: 'youtube',
+              child: Text('Open in YouTube'),
+            ),
+            if (onRemove != null)
+              const PopupMenuItem(
+                value: 'remove',
+                child: Text('Remove from playlist'),
+              ),
+          ],
+        ),
       ],
     ),
   );
