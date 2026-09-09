@@ -35,6 +35,7 @@ test('packaged Windows app persists playlist additions and removals', async () =
     await page.getByRole('button', { name: 'Continue as guest' }).click()
     await page.getByRole('button', { name: 'Search', exact: true }).click()
     await page.getByLabel('Search music').fill('test')
+    await page.getByLabel('Search music').press('Enter')
     await page.getByRole('button', { name: 'Add Test Song to playlist', exact: true }).first().click()
     const saveDialog = page.getByRole('dialog', { name: 'Add to playlist', exact: true })
     await saveDialog.getByLabel('New playlist name').fill('Road Trip')

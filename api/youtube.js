@@ -48,7 +48,10 @@ export default async function handler(request, response) {
       const data = await upstream.json()
 
       if (upstream.ok) {
-        response.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
+        const cacheControl = endpoint === 'search'
+          ? 'public, s-maxage=21600, stale-while-revalidate=86400'
+          : 'public, s-maxage=300, stale-while-revalidate=1800'
+        response.setHeader('Cache-Control', cacheControl)
         return response.status(200).json(data)
       }
 

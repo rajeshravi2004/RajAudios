@@ -195,6 +195,7 @@ export const normalizePlaylist = (item) => {
 
 // ─── In-flight request deduplication ──────────────────────────────────────────
 const pendingRequests = new Map()
+const normalizedQuery = query => String(query || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US')
 
 const deduplicatedRequest = async (cacheKey, cacheType, fetcher) => {
   // Check cache first
@@ -229,9 +230,10 @@ const deduplicatedRequest = async (cacheKey, cacheType, fetcher) => {
  * Search for videos (music-optimized)
  */
 export const searchVideos = async ({ q, maxResults = 20, pageToken, regionCode }) => {
-  const cacheKey = `search_v:${q}:${maxResults}:${pageToken || ''}:${regionCode || ''}`
+  const query = normalizedQuery(q)
+  const cacheKey = `search_v:${query}:${maxResults}:${pageToken || ''}:${regionCode || ''}`
   const { data } = await deduplicatedRequest(cacheKey, 'search', () =>
-    ytapi.search({ q, type: 'video', maxResults, pageToken, videoCategoryId: '10', regionCode })
+    ytapi.search({ q: query, type: 'video', maxResults, pageToken, videoCategoryId: '10', regionCode })
   )
   if (isAPIError(data)) return { error: getErrorMessage(data), items: [], nextPageToken: null }
   
@@ -323,9 +325,10 @@ export const enrichTracks = async (tracks) => {
  * Search for playlists
  */
 export const searchPlaylists = async ({ q, maxResults = 20, pageToken, regionCode }) => {
-  const cacheKey = `search_p:${q}:${maxResults}:${pageToken || ''}:${regionCode || ''}`
+  const query = normalizedQuery(q)
+  const cacheKey = `search_p:${query}:${maxResults}:${pageToken || ''}:${regionCode || ''}`
   const { data } = await deduplicatedRequest(cacheKey, 'search', () =>
-    ytapi.searchPlaylists({ q, maxResults, pageToken, regionCode })
+    ytapi.searchPlaylists({ q: query, maxResults, pageToken, regionCode })
   )
   if (isAPIError(data)) return { error: getErrorMessage(data), items: [], nextPageToken: null }
   
@@ -410,13 +413,18 @@ export const getTrendingMusic = async ({ regionCode = 'IN', maxResults = 50, pag
 }
 
 /**
- * Search for content matching a query — returns videos AND playlists
+ * Search for content matching a query. Playlist lookup is opt-in so callers do
+ * not silently spend a second search.list request.
  */
-export const universalSearch = async ({ q, maxResults = 10, regionCode }) => {
-  const [videoResults, playlistResults] = await Promise.allSettled([
-    searchVideos({ q: `${q} music`, maxResults, regionCode }),
-    searchPlaylists({ q: `${q} music`, maxResults: 5, regionCode }),
-  ])
+export const universalSearch = async ({ q, maxResults = 10, regionCode, includePlaylists = false }) => {
+  const videoResults = await Promise.resolve(searchVideos({ q: `${q} music`, maxResults, regionCode }))
+    .then(value => ({ status: 'fulfilled', value }))
+    .catch(reason => ({ status: 'rejected', reason }))
+  const playlistResults = includePlaylists
+    ? await Promise.resolve(searchPlaylists({ q: `${q} music`, maxResults: 5, regionCode }))
+      .then(value => ({ status: 'fulfilled', value }))
+      .catch(reason => ({ status: 'rejected', reason }))
+    : { status: 'fulfilled', value: { items: [], error: null } }
 
   return {
     videos: videoResults.status === 'fulfilled' ? videoResults.value.items : [],

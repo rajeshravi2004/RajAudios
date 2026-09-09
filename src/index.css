@@ -525,6 +525,9 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ─── Search input ───────────────────────────────────────────────────────────── */
+.search-submit-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+.search-field-wrap { position: relative; min-width: 0; }
+.search-field-icon { position: absolute; z-index: 1; top: 50%; left: 16px; width: 20px; height: 20px; color: var(--text-muted); transform: translateY(-50%); pointer-events: none; }
 .search-input {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-card);
@@ -532,11 +535,19 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-primary);
   font-family: inherit;
   font-size: 14px;
-  padding: 10px 16px 10px 44px;
+  height: 46px;
+  padding: 10px 48px 10px 44px;
   width: 100%;
   outline: none;
   transition: border-color var(--transition-base), background var(--transition-base);
 }
+
+.search-input::-webkit-search-cancel-button { display: none; }
+.search-clear-button { position: absolute; top: 50%; right: 7px; transform: translateY(-50%); }
+.search-submit-button { min-width: 108px; height: 46px; border-radius: var(--radius-full); }
+.recent-search-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid var(--border-card); border-radius: var(--radius-full); color: var(--text-secondary); background: var(--bg-card); font-size: 12px; transition: border-color var(--transition-fast), background var(--transition-fast); }
+.recent-search-chip:hover { border-color: var(--border-accent); background: var(--bg-card-hover); }
+.recent-search-chip svg { width: 15px; height: 15px; color: var(--text-muted); }
 
 .search-input::placeholder {
   color: var(--text-muted);
@@ -545,6 +556,11 @@ input[type="range"]::-moz-range-thumb {
 .search-input:focus {
   border-color: var(--accent-bright);
   background: rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 520px) {
+  .search-submit-form { grid-template-columns: 1fr; }
+  .search-submit-button { width: 100%; }
 }
 
 /* ─── Empty / Error states ───────────────────────────────────────────────────── */

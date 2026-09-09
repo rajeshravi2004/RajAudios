@@ -52,6 +52,7 @@ async function desktopFixture(page) {
 async function chooseSong(page) {
   await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.getByLabel('Search music').fill('shared test')
+  await page.getByLabel('Search music').press('Enter')
   await page.getByText('Shared Test Song', { exact: true }).first().click()
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
 }

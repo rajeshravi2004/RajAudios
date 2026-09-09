@@ -5,11 +5,15 @@
  * Results are cached to minimize API quota usage.
  */
 
-import { searchVideos, searchPlaylists, getTrendingMusic } from './youtubeService.js'
+import { getTrendingMusic } from './youtubeService.js'
 import { filterTracks, rankTracks } from './contentFilter.js'
 import { historyStorage } from '../utils/storage.js'
 
 const CURRENT_YEAR = new Date().getFullYear()
+const REGION_LABELS = {
+  IN: 'India', US: 'United States', GB: 'United Kingdom', KR: 'South Korea',
+  JP: 'Japan', MX: 'Mexico', FR: 'France', DE: 'Germany', BR: 'Brazil',
+}
 
 const LANGUAGE_QUERIES = {
   tamil: {
@@ -157,83 +161,55 @@ export const getLanguageConfig = (lang) => {
  */
 export const getHomeSections = async (language = 'tamil', filterOptions = {}) => {
   const config = getLanguageConfig(language)
-  const { queries, region } = config
+  const { region } = config
+  const regionLabel = REGION_LABELS[region] || region
 
-  // Fetch sections in parallel — individual failures don't break the page
-  const [trendingResult, newResult, popularResult, playlistResult, globalTrending] = 
-    await Promise.allSettled([
-      searchVideos({ q: queries.trending, maxResults: 20, regionCode: region }),
-      searchVideos({ q: queries.new, maxResults: 20, regionCode: region }),
-      searchVideos({ q: queries.popular, maxResults: 20, regionCode: region }),
-      searchPlaylists({ q: queries.playlists, maxResults: 12, regionCode: region }),
-      getTrendingMusic({ regionCode: region, maxResults: 30 }),
-    ])
-
-  const getItems = (result) => result.status === 'fulfilled' && !result.value?.error 
-    ? result.value.items || [] 
-    : []
-
-  const getTracks = (result) => filterTracks(getItems(result), filterOptions)
-
-  const trendingTracks = getTracks(trendingResult)
-  const newTracks = getTracks(newResult)
-  const popularTracks = rankTracks(getTracks(popularResult), filterOptions)
-  const playlists = getItems(playlistResult)
-  const globalTracks = getTracks(globalTrending)
+  // videos.list(chart=mostPopular) uses the general quota bucket. One response
+  // powers every shelf instead of spending four scarce search.list calls.
+  const chart = await getTrendingMusic({ regionCode: region, maxResults: 50 })
+  if (chart.error) return []
+  const chartTracks = filterTracks(chart.items || [], filterOptions)
+  const freshTracks = [...chartTracks].sort((a, b) =>
+    String(b.publishedAt || '').localeCompare(String(a.publishedAt || ''))
+  )
+  const popularTracks = rankTracks(chartTracks, filterOptions)
 
   // Deduplicate across sections by video ID
   const seenIds = new Set()
-  const dedup = (tracks) => tracks.filter(t => {
-    if (seenIds.has(t.id)) return false
-    seenIds.add(t.id)
-    return true
-  })
+  const takeUnique = (tracks, limit) => {
+    const selected = []
+    for (const track of tracks) {
+      if (seenIds.has(track.id)) continue
+      seenIds.add(track.id)
+      selected.push(track)
+      if (selected.length === limit) break
+    }
+    return selected
+  }
 
   const sections = [
     {
       id: 'trending_lang',
-      title: `🔥 Trending ${config.label}`,
-      subtitle: `What's hot in ${config.label} music right now`,
+      title: `🔥 Trending in ${regionLabel}`,
+      subtitle: 'Official YouTube music chart',
       type: 'tracks',
-      items: dedup(trendingTracks).slice(0, 20),
+      items: takeUnique(chartTracks, 18),
     },
     {
       id: 'new_releases',
-      title: '🆕 New Releases',
-      subtitle: 'Fresh music just dropped',
+      title: '🆕 Fresh Chart Picks',
+      subtitle: `Recent music charting in ${regionLabel}`,
       type: 'tracks',
-      items: dedup(newTracks).slice(0, 20),
-    },
-    {
-      id: 'popular_playlists',
-      title: '🎵 Popular Playlists',
-      subtitle: `Top ${config.label} playlists`,
-      type: 'playlists',
-      items: playlists.slice(0, 12),
+      items: takeUnique(freshTracks, 16),
     },
     {
       id: 'popular_tracks',
-      title: '📈 Popular Right Now',
-      subtitle: 'High quality picks',
+      title: '📈 More Popular Music',
+      subtitle: 'More from the regional chart',
       type: 'tracks',
-      items: dedup(popularTracks).slice(0, 20),
+      items: takeUnique(popularTracks, 16),
     },
   ]
-
-  // Add global trending if language is not English
-  if (language !== 'english' && globalTracks.length > 0) {
-    const globalDeduped = dedup(globalTracks).slice(0, 15)
-    if (globalDeduped.length > 0) {
-      sections.push({
-        id: 'global_trending',
-        title: '🌍 Global Trending',
-        subtitle: 'Music charts worldwide',
-        type: 'tracks',
-        items: globalDeduped,
-        context: 'trending',
-      })
-    }
-  }
 
   return sections.filter(s => s.items.length > 0)
 }
@@ -267,10 +243,10 @@ export const getTrendingSections = async (language = 'tamil') => {
   const config = getLanguageConfig(language)
   const { region } = config
 
-  const [indiaTrending, globalTrending, langTrending] = await Promise.allSettled([
+  const [indiaTrending, globalTrending, regionalTrending] = await Promise.allSettled([
     getTrendingMusic({ regionCode: 'IN', maxResults: 50 }),
     getTrendingMusic({ regionCode: 'US', maxResults: 30 }),
-    searchVideos({ q: config.queries.trending, maxResults: 30, regionCode: region }),
+    getTrendingMusic({ regionCode: region, maxResults: 30 }),
   ])
 
   const getItems = (result) => result.status === 'fulfilled' && !result.value?.error
@@ -295,12 +271,12 @@ export const getTrendingSections = async (language = 'tamil') => {
       items: getItems(globalTrending).slice(0, 20),
     },
     {
-      id: 'lang_trending',
-      title: `🎵 ${config.label} Trending`,
-      subtitle: `Hot ${config.label} tracks`,
+      id: 'regional_trending',
+      title: `🎵 Trending in ${REGION_LABELS[region] || region}`,
+      subtitle: 'Official regional music chart',
       type: 'tracks',
       context: 'trending',
-      items: getItems(langTrending).slice(0, 20),
+      items: getItems(regionalTrending).slice(0, 20),
     },
   ].filter(s => s.items.length > 0)
 }

@@ -156,6 +156,9 @@ const regions = {
   'PK': 'Pakistan',
   'CA': 'Canada',
   'AU': 'Australia',
+  'AE': 'United Arab Emirates',
+  'IT': 'Italy',
+  'TW': 'Taiwan',
 };
 String label(String value) =>
     value.isEmpty ? value : '${value[0].toUpperCase()}${value.substring(1)}';

@@ -93,6 +93,7 @@ async function selectDevicesAndSong(page) {
   await page.getByLabel('Second earbuds', { exact: true }).check()
   await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.getByLabel('Search music').fill('browser sharing')
+  await page.getByLabel('Search music').press('Enter')
   await page.getByText('Browser Sharing Song', { exact: true }).first().click()
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
 }

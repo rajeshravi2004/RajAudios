@@ -1,8 +1,8 @@
 /**
- * SearchPage.jsx — Modern search experience
+ * SearchPage.jsx — Explicit, quota-conscious music search.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MagnifyingGlassIcon, XMarkIcon, ClockIcon } from '@heroicons/react/24/solid'
 import { PlaylistCard } from '../../components/TrackCard.jsx'
 import { TrackList } from '../../components/TrackList.jsx'
@@ -10,8 +10,7 @@ import { SkeletonTrackRow } from '../../components/ui/SkeletonLoader.jsx'
 import { ErrorState, EmptyState } from '../../components/ui/ErrorState.jsx'
 import { usePlayer } from '../../stores/playerStore.jsx'
 import { useSettings } from '../../stores/settingsStore.jsx'
-import { useDebounce } from '../../hooks/useDebounce.js'
-import { universalSearch } from '../../services/youtubeService.js'
+import { searchPlaylists, searchVideos } from '../../services/youtubeService.js'
 
 const MAX_RECENT_SEARCHES = 8
 const RECENT_SEARCHES_KEY = 'rajify_recent_searches'
@@ -25,7 +24,7 @@ function getRecentSearches() {
 
 function saveRecentSearch(query) {
   try {
-    const existing = getRecentSearches().filter(s => s !== query)
+    const existing = getRecentSearches().filter(search => search !== query)
     const updated = [query, ...existing].slice(0, MAX_RECENT_SEARCHES)
     localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated))
     return updated
@@ -38,170 +37,170 @@ function clearRecentSearches() {
 
 export function SearchPage({ initialQuery = '', onOpenPlaylist }) {
   const [query, setQuery] = useState(initialQuery)
-  const [results, setResults] = useState(null) // null = no search yet
+  const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [playlistLoading, setPlaylistLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [playlistError, setPlaylistError] = useState(null)
   const [recentSearches, setRecentSearches] = useState(getRecentSearches())
   const [activeTab, setActiveTab] = useState('songs')
   const inputRef = useRef(null)
-  const debouncedQuery = useDebounce(query, 400)
+  const requestIdRef = useRef(0)
   const { settings } = useSettings()
   const { playTrack } = usePlayer()
-  const requestIdRef = useRef(0)
 
-  // Auto-focus search input
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
+  useEffect(() => { inputRef.current?.focus() }, [])
 
-  // Search when debounced query changes
-  useEffect(() => {
-    if (!debouncedQuery.trim()) {
-      requestIdRef.current += 1
-      setResults(null)
-      setError(null)
-      setLoading(false)
-      return
-    }
-    doSearch(debouncedQuery)
-  }, [debouncedQuery]) // eslint-disable-line
-
-  const doSearch = useCallback(async (q) => {
-    if (!q.trim()) return
-    
-    // Ignore responses from searches superseded by a newer query.
+  const doSearch = async rawQuery => {
+    const submitted = rawQuery.trim().replace(/\s+/g, ' ')
+    if (!submitted) return
     const requestId = ++requestIdRef.current
 
     setLoading(true)
+    setPlaylistLoading(false)
     setError(null)
+    setPlaylistError(null)
+    setActiveTab('songs')
+    setResults(null)
 
     try {
-      const data = await universalSearch({ 
-        q: q.trim(), 
+      // One search.list call. Playlist search stays lazy until its tab is opened.
+      const songResults = await searchVideos({
+        q: `${submitted} music`,
         maxResults: 20,
         regionCode: settings.region || 'IN',
       })
-
-      // Don't update if a newer request has started
       if (requestId !== requestIdRef.current) return
 
-      if (data.videoError && data.playlistError) {
-        setError(data.videoError || data.playlistError)
-        setResults(null)
-      } else {
-        setResults(data)
-        // Save to recent searches
-        const updated = saveRecentSearch(q.trim())
-        setRecentSearches(updated)
-        // Default to songs tab if results available
-        if (data.videos.length > 0) setActiveTab('songs')
-        else if (data.playlists.length > 0) setActiveTab('playlists')
-      }
+      setResults({ query: submitted, videos: songResults.items || [], playlists: null })
+      setError(songResults.error || null)
+      setRecentSearches(saveRecentSearch(submitted))
     } catch {
       if (requestId !== requestIdRef.current) return
+      setResults({ query: submitted, videos: [], playlists: null })
       setError('Search failed. Check your connection and try again.')
     } finally {
       if (requestId === requestIdRef.current) setLoading(false)
     }
-  }, [settings.region])
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (query.trim()) doSearch(query.trim())
   }
 
-  const handleRecentClick = (q) => {
-    setQuery(q)
+  const openPlaylistResults = async () => {
+    setActiveTab('playlists')
+    if (!results || playlistLoading) return
+    if (results.playlists !== null && !playlistError) return
+
+    const requestId = requestIdRef.current
+    const submitted = results.query
+    setPlaylistLoading(true)
+    setPlaylistError(null)
+    try {
+      const playlistResults = await searchPlaylists({
+        q: `${submitted} music`,
+        maxResults: 12,
+        regionCode: settings.region || 'IN',
+      })
+      if (requestId !== requestIdRef.current) return
+      setResults(current => current?.query === submitted
+        ? { ...current, playlists: playlistResults.items || [] }
+        : current)
+      setPlaylistError(playlistResults.error || null)
+    } catch {
+      if (requestId === requestIdRef.current) {
+        setResults(current => current?.query === submitted ? { ...current, playlists: [] } : current)
+        setPlaylistError('Playlist search failed. Please try again.')
+      }
+    } finally {
+      if (requestId === requestIdRef.current) setPlaylistLoading(false)
+    }
   }
 
-  const handleClearRecent = () => {
-    clearRecentSearches()
-    setRecentSearches([])
+  const handleSubmit = event => {
+    event.preventDefault()
+    doSearch(query)
   }
 
-  const hasResults = results && (results.videos.length > 0 || results.playlists.length > 0)
+  const handleRecentClick = recent => {
+    setQuery(recent)
+    doSearch(recent)
+  }
+
+  const handleQueryChange = event => {
+    requestIdRef.current += 1
+    setQuery(event.target.value)
+    setResults(null)
+    setError(null)
+    setPlaylistError(null)
+    setLoading(false)
+    setPlaylistLoading(false)
+  }
+
+  const clearSearch = () => {
+    requestIdRef.current += 1
+    setQuery('')
+    setResults(null)
+    setError(null)
+    setPlaylistError(null)
+    setLoading(false)
+    setPlaylistLoading(false)
+    inputRef.current?.focus()
+  }
 
   return (
     <div className="page-scroll fade-in">
       <div className="page-content">
-        {/* Search bar */}
-        <form onSubmit={handleSubmit} className="relative mb-8">
-          <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 pointer-events-none"
-            style={{ color: 'var(--text-muted)' }} />
-          <input
-            ref={inputRef}
-            type="text"
-            className="search-input"
-            placeholder="Search songs, artists, playlists..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search music"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => { setQuery(''); setResults(null); setError(null) }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 icon-btn"
-              aria-label="Clear search"
-            >
-              <XMarkIcon className="h-5 w-5" />
-            </button>
-          )}
+        <form onSubmit={handleSubmit} className="search-submit-form mb-8">
+          <div className="search-field-wrap">
+            <MagnifyingGlassIcon className="search-field-icon" />
+            <input
+              ref={inputRef}
+              type="search"
+              className="search-input"
+              placeholder="Search songs or artists..."
+              value={query}
+              onChange={handleQueryChange}
+              aria-label="Search music"
+            />
+            {query && (
+              <button type="button" onClick={clearSearch} className="search-clear-button icon-btn" aria-label="Clear search">
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+          <button type="submit" className="primary-button search-submit-button" disabled={!query.trim() || loading}>
+            <MagnifyingGlassIcon /> {loading ? 'Searching…' : 'Search'}
+          </button>
         </form>
 
-        {/* Error */}
         {error && (
-          <ErrorState
-            error={error}
-            compact
-            onRetry={() => doSearch(query)}
-            className="mb-6"
-          />
+          <ErrorState error={error} compact onRetry={() => doSearch(results?.query || query)} className="mb-6" />
         )}
 
-        {/* Loading */}
         {loading && (
           <div>
             <div className="flex gap-2 mb-6">
-              {['Songs', 'Playlists'].map(t => (
-                <div key={t} className="skeleton h-9 w-24 rounded-full" />
-              ))}
+              <div className="skeleton h-9 w-24 rounded-full" />
+              <div className="skeleton h-9 w-24 rounded-full" />
             </div>
             <div className="space-y-1">
-              {Array.from({ length: 8 }).map((_, i) => <SkeletonTrackRow key={i} />)}
+              {Array.from({ length: 8 }).map((_, index) => <SkeletonTrackRow key={index} />)}
             </div>
           </div>
         )}
 
-        {/* No query — show recent searches */}
         {!query && !loading && (
           <div>
             {recentSearches.length > 0 ? (
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-bold">Recent Searches</h2>
-                  <button
-                    onClick={handleClearRecent}
-                    className="text-sm"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
+                  <button onClick={() => { clearRecentSearches(); setRecentSearches([]) }} className="text-sm" style={{ color: 'var(--text-muted)' }}>
                     Clear all
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {recentSearches.map((s, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleRecentClick(s)}
-                      className="flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-all"
-                      style={{
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border-card)',
-                        color: 'var(--text-secondary)',
-                      }}
-                    >
-                      <ClockIcon className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
-                      {s}
+                  {recentSearches.map(recent => (
+                    <button key={recent} onClick={() => handleRecentClick(recent)} className="recent-search-chip">
+                      <ClockIcon /> {recent}
                     </button>
                   ))}
                 </div>
@@ -210,66 +209,64 @@ export function SearchPage({ initialQuery = '', onOpenPlaylist }) {
               <EmptyState
                 icon={<MagnifyingGlassIcon className="h-12 w-12" />}
                 title="Search for music"
-                subtitle="Find songs, artists, and playlists"
+                subtitle="Type a song or artist, then press Search"
               />
             )}
           </div>
         )}
 
-        {/* Results */}
-        {!loading && hasResults && (
+        {!loading && results && (
           <div>
-            {/* Tabs */}
             <div className="flex gap-2 mb-6">
-              {results.videos.length > 0 && (
-                <TabButton
-                  active={activeTab === 'songs'}
-                  onClick={() => setActiveTab('songs')}
-                  label={`Songs (${results.videos.length})`}
-                />
-              )}
-              {results.playlists.length > 0 && (
-                <TabButton
-                  active={activeTab === 'playlists'}
-                  onClick={() => setActiveTab('playlists')}
-                  label={`Playlists (${results.playlists.length})`}
-                />
-              )}
+              <TabButton
+                active={activeTab === 'songs'}
+                onClick={() => setActiveTab('songs')}
+                label={`Songs (${results.videos.length})`}
+              />
+              <TabButton
+                active={activeTab === 'playlists'}
+                onClick={openPlaylistResults}
+                label={results.playlists === null ? 'Playlists' : `Playlists (${results.playlists.length})`}
+              />
             </div>
 
-            {/* Songs tab */}
-            {activeTab === 'songs' && results.videos.length > 0 && (
+            {activeTab === 'songs' && (results.videos.length > 0 ? (
               <TrackList
                 tracks={results.videos}
                 showIndex={false}
                 showDuration={true}
-                onPlay={(track, i) => playTrack(track, results.videos, i)}
+                onPlay={(track, index) => playTrack(track, results.videos, index)}
               />
-            )}
+            ) : !error && (
+              <EmptyState
+                icon={<MagnifyingGlassIcon className="h-12 w-12" />}
+                title={`No songs for “${results.query}”`}
+                subtitle="Try different keywords or search playlists"
+              />
+            ))}
 
-            {/* Playlists tab */}
-            {activeTab === 'playlists' && results.playlists.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {results.playlists.map((playlist, i) => (
-                  <PlaylistCard
-                    key={`${playlist.id}-${i}`}
-                    playlist={playlist}
-                    size="md"
-                    onClick={onOpenPlaylist}
-                  />
-                ))}
-              </div>
+            {activeTab === 'playlists' && (
+              playlistLoading ? (
+                <div className="space-y-1">
+                  {Array.from({ length: 6 }).map((_, index) => <SkeletonTrackRow key={index} />)}
+                </div>
+              ) : playlistError ? (
+                <ErrorState error={playlistError} compact onRetry={openPlaylistResults} />
+              ) : results.playlists?.length ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {results.playlists.map((playlist, index) => (
+                    <PlaylistCard key={`${playlist.id}-${index}`} playlist={playlist} size="md" onClick={onOpenPlaylist} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<MagnifyingGlassIcon className="h-12 w-12" />}
+                  title={`No playlists for “${results.query}”`}
+                  subtitle="Try a broader artist, genre, or mood"
+                />
+              )
             )}
           </div>
-        )}
-
-        {/* No results */}
-        {!loading && results && !hasResults && (
-          <EmptyState
-            icon={<MagnifyingGlassIcon className="h-12 w-12" />}
-            title={`No results for "${query}"`}
-            subtitle="Try different keywords or check your spelling"
-          />
         )}
       </div>
     </div>

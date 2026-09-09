@@ -248,7 +248,7 @@ export const queueStorage = {
 // ─── API Cache ────────────────────────────────────────────────────────────────
 const CACHE_TTLS = {
   trending: 30 * 60 * 1000,       // 30 min
-  search: 15 * 60 * 1000,         // 15 min
+  search: 6 * 60 * 60 * 1000,     // 6 hours — conserve search.list quota
   playlist: 60 * 60 * 1000,       // 1 hour
   video: 24 * 60 * 60 * 1000,     // 24 hours
   channel: 24 * 60 * 60 * 1000,   // 24 hours

@@ -18,11 +18,12 @@ const playlistItem = {
   },
 }
 
-async function mockYouTubeApi(page) {
+async function mockYouTubeApi(page, onSearch = () => {}) {
   await page.route('**/api/youtube**', route => {
     const url = new URL(route.request().url())
     const endpoint = url.searchParams.get('endpoint')
     const type = url.searchParams.get('type')
+    if (endpoint === 'search') onSearch(type)
 
     if (endpoint === 'search' && type === 'video') {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: [videoItem] }) })
@@ -67,6 +68,29 @@ test('creates playlists with the custom dialog', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Road Trip/ })).toBeVisible()
 })
 
+test('search uses quota only on submit and loads playlists lazily', async ({ page }) => {
+  const searchTypes = []
+  await mockYouTubeApi(page, type => searchTypes.push(type))
+  await enterAsGuest(page)
+
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.getByLabel('Search music').fill('test')
+  await page.waitForTimeout(600)
+  expect(searchTypes).toEqual([])
+
+  await page.getByLabel('Search music').press('Enter')
+  await expect(page.getByText('Test Song', { exact: true })).toBeVisible()
+  expect(searchTypes).toEqual(['video'])
+
+  await page.getByRole('button', { name: 'Playlists', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Open playlist: Test Playlist' })).toBeVisible()
+  expect(searchTypes).toEqual(['video', 'playlist'])
+
+  await page.getByRole('button', { name: 'Songs (1)', exact: true }).click()
+  await page.getByRole('button', { name: 'Playlists (1)', exact: true }).click()
+  expect(searchTypes).toEqual(['video', 'playlist'])
+})
+
 test('destructive actions use a custom confirmation dialog', async ({ page }) => {
   await enterAsGuest(page)
   await page.getByRole('button', { name: 'Settings' }).click()
@@ -85,7 +109,9 @@ test('search playlists can be opened', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Search' }).click()
   await page.getByLabel('Search music').fill('test')
-  await page.getByRole('button', { name: /Playlists \(1\)/ }).click()
+  await page.getByLabel('Search music').press('Enter')
+  await page.getByRole('button', { name: 'Playlists', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Playlists (1)', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Open playlist: Test Playlist' }).click()
 
   await expect(page.getByRole('heading', { name: 'Test Playlist' })).toBeVisible()
@@ -98,6 +124,7 @@ test('played and liked songs keep their duration metadata', async ({ page }) => 
 
   await page.getByRole('button', { name: 'Search' }).click()
   await page.getByLabel('Search music').fill('test')
+  await page.getByLabel('Search music').press('Enter')
   await expect(page.getByText('3:42', { exact: true })).toBeVisible()
   await page.getByText('Test Song', { exact: true }).click()
   await page.getByRole('main').getByRole('button', { name: 'Like' }).click()
@@ -140,6 +167,7 @@ test('video fullscreen targets and fills the real player container', async ({ pa
 
   await page.getByRole('button', { name: 'Search' }).click()
   await page.getByLabel('Search music').fill('test')
+  await page.getByLabel('Search music').press('Enter')
   await page.getByText('Test Song', { exact: true }).click()
   await expect.poll(() => page.evaluate(() => window.__ytPlayerCalls)).toEqual([
     'load:video123456',
@@ -182,6 +210,7 @@ test('playlist songs can be added, deduplicated, removed and persisted', async (
   await enterAsGuest(page)
   await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.getByLabel('Search music').fill('test')
+  await page.getByLabel('Search music').press('Enter')
   await page.getByRole('button', { name: 'Add Test Song to playlist', exact: true }).first().click()
   const saveDialog = page.getByRole('dialog', { name: 'Add to playlist', exact: true })
   await saveDialog.getByLabel('New playlist name').fill('Road Trip')

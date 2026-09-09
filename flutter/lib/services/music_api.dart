@@ -27,6 +27,9 @@ class MusicApi {
   final _pending = <String, Future<Map<String, dynamic>>>{};
   bool get hasPersonalKey => _personalKey != null;
 
+  String _normalizedQuery(String query) =>
+      query.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+
   void clearKey() {
     _personalKey = null;
     clearCache();
@@ -125,7 +128,11 @@ class MusicApi {
       if (_personalKey == personal) {
         if (_cache.length >= 80) _cache.remove(_cache.keys.first);
         _cache[key] = (
-          expires: DateTime.now().add(const Duration(minutes: 10)),
+          expires: DateTime.now().add(
+            endpoint == 'search'
+                ? const Duration(hours: 6)
+                : const Duration(minutes: 10),
+          ),
           data: data,
         );
       }
@@ -174,7 +181,7 @@ class MusicApi {
     final data = await request('search', {
       'part': 'snippet',
       'type': 'video',
-      'q': query,
+      'q': _normalizedQuery(query),
       'videoCategoryId': '10',
       'videoEmbeddable': 'true',
       'maxResults': '20',
@@ -207,7 +214,7 @@ class MusicApi {
     final data = await request('search', {
       'part': 'snippet',
       'type': 'playlist',
-      'q': query,
+      'q': _normalizedQuery(query),
       'maxResults': '20',
       'regionCode': region,
       'pageToken': ?page,

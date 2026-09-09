@@ -289,9 +289,10 @@ void main() {
       ),
     );
     await tester.enterText(find.byType(TextField), 'old');
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pump();
     await tester.enterText(find.byType(TextField), 'new');
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.byTooltip('Search'));
     await tester.pumpAndSettle();
     expect(find.text('New result'), findsOneWidget);
     slow.complete(

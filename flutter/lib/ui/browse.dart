@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
@@ -7,6 +5,29 @@ import '../models.dart';
 import '../player_state.dart';
 import 'common.dart';
 import 'library.dart';
+
+const _languageRegions = <String, String>{
+  'tamil': 'IN',
+  'hindi': 'IN',
+  'telugu': 'IN',
+  'malayalam': 'IN',
+  'kannada': 'IN',
+  'bengali': 'IN',
+  'marathi': 'IN',
+  'punjabi': 'IN',
+  'gujarati': 'IN',
+  'urdu': 'PK',
+  'english': 'US',
+  'korean': 'KR',
+  'japanese': 'JP',
+  'spanish': 'MX',
+  'french': 'FR',
+  'arabic': 'AE',
+  'portuguese': 'BR',
+  'german': 'DE',
+  'italian': 'IT',
+  'chinese': 'TW',
+};
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.app, required this.player});
@@ -17,8 +38,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final _sections = <String, Future<PageResult<Track>>>{};
-  late Future<PageResult<MusicPlaylist>> _playlists;
+  late Future<PageResult<Track>> _featured;
   String _signature = '';
   @override
   void initState() {
@@ -37,42 +57,16 @@ class _HomePageState extends State<HomePage> {
   void _load() {
     final app = widget.app;
     _signature = _currentSignature;
-    final year = DateTime.now().year;
-    _sections.clear();
-    if (app.settings['personalizedRecommendations'] == true &&
-        app.history.isNotEmpty) {
-      _sections['Because you listen to ${app.history.first.channel}'] = app.api
-          .search('${app.history.first.channel} official music', app.region);
-    }
-    _sections['Trending in ${label(app.language)}'] = app.api.search(
-      'trending ${app.language} songs $year',
-      app.region,
-    );
-    _sections['Fresh releases'] = app.api.search(
-      'new ${app.language} songs $year official',
-      app.region,
-    );
-    _sections['On repeat'] = app.api.search(
-      'popular ${app.language} songs official music',
-      app.region,
-    );
-    _playlists = app.api.playlists(
-      '${app.language} music playlists',
-      app.region,
-    );
-    // Attach error handlers immediately; each section also renders its own error.
-    for (final future in _sections.values) {
-      future.ignore();
-    }
-    _playlists.ignore();
+    // videos.list(chart=mostPopular) uses the normal quota bucket. Split one
+    // chart response into shelves instead of spending search quota on Home.
+    _featured = app.api.trending(app.region);
+    _featured.ignore();
   }
 
   Future<void> _refresh() async {
     widget.app.api.clearCache();
     setState(_load);
-    await Future.wait(
-      _sections.values.map((f) => f.then<void>((_) {}, onError: (Object _) {})),
-    );
+    await _featured.then<void>((_) {}, onError: (Object _) {});
   }
 
   @override
@@ -119,8 +113,10 @@ class _HomePageState extends State<HomePage> {
                       label: Text(label(language)),
                       selected: app.language == language,
                       showCheckmark: false,
-                      onSelected: (_) =>
-                          app.updateSettings({'language': language}),
+                      onSelected: (_) => app.updateSettings({
+                        'language': language,
+                        'region': _languageRegions[language] ?? app.region,
+                      }),
                     ),
                   ),
                 ActionChip(
@@ -140,7 +136,11 @@ class _HomePageState extends State<HomePage> {
                                   ? const Icon(Icons.check_rounded)
                                   : null,
                               onTap: () {
-                                app.updateSettings({'language': language});
+                                app.updateSettings({
+                                  'language': language,
+                                  'region':
+                                      _languageRegions[language] ?? app.region,
+                                });
                                 Navigator.pop(context);
                               },
                             ),
@@ -180,7 +180,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        '${label(app.language)} favorites',
+                        'Top music in ${regions[app.region] ?? app.region}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 24,
@@ -200,9 +200,8 @@ class _HomePageState extends State<HomePage> {
                         ),
                         onPressed: () async {
                           try {
-                            final page =
-                                await _sections['Trending in ${label(app.language)}'];
-                            final tracks = app.filter(page?.items ?? []);
+                            final page = await _featured;
+                            final tracks = app.filter(page.items);
                             if (tracks.isNotEmpty) {
                               await widget.player.play(tracks.first, tracks);
                             }
@@ -249,31 +248,8 @@ class _HomePageState extends State<HomePage> {
           ),
           if (app.history.isNotEmpty)
             _shelf('Continue listening', app.history.take(10).toList()),
-          for (final section in _sections.entries)
-            FutureBuilder<PageResult<Track>>(
-              future: section.value,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _heading(section.key),
-                      ErrorMessage(snapshot.error!, () => setState(_load)),
-                    ],
-                  );
-                }
-                if (!snapshot.hasData) {
-                  return const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                return _shelf(section.key, app.filter(snapshot.data!.items));
-              },
-            ),
-          _heading('Playlists to get lost in'),
-          FutureBuilder<PageResult<MusicPlaylist>>(
-            future: _playlists,
+          FutureBuilder<PageResult<Track>>(
+            future: _featured,
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return ErrorMessage(snapshot.error!, () => setState(_load));
@@ -281,17 +257,25 @@ class _HomePageState extends State<HomePage> {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
+              final tracks = app.filter(snapshot.data!.items);
               return Column(
-                children: snapshot.data!.items
-                    .take(6)
-                    .map(
-                      (p) => PlaylistTile(
-                        playlist: p,
-                        app: app,
-                        player: widget.player,
-                      ),
-                    )
-                    .toList(),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _shelf(
+                    'Trending in ${regions[app.region] ?? app.region}',
+                    tracks.take(18).toList(),
+                  ),
+                  if (tracks.length > 18)
+                    _shelf(
+                      'Fresh chart picks',
+                      tracks.skip(18).take(16).toList(),
+                    ),
+                  if (tracks.length > 34)
+                    _shelf(
+                      'More to discover',
+                      tracks.skip(34).take(16).toList(),
+                    ),
+                ],
               );
             },
           ),
@@ -433,13 +417,17 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   final _query = TextEditingController();
-  Timer? _debounce;
   int _generation = 0;
-  bool _busy = false, _playlistTab = false, _searched = false;
-  String? _error, _next;
+  bool _busy = false, _playlistTab = false;
+  bool _songsLoaded = false, _playlistsLoaded = false;
+  String? _error, _songNext, _playlistNext;
   String _region = '';
   List<Track> _tracks = [];
   List<MusicPlaylist> _playlists = [];
+  bool get _searched => widget.trending
+      ? _songsLoaded
+      : (_playlistTab ? _playlistsLoaded : _songsLoaded);
+  String? get _next => _playlistTab ? _playlistNext : _songNext;
   @override
   void initState() {
     super.initState();
@@ -457,66 +445,75 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _changed(String query) {
-    _debounce?.cancel();
     _generation++;
     setState(() {
-      _busy = query.trim().isNotEmpty;
+      _busy = false;
       _tracks = [];
       _playlists = [];
       _error = null;
-      _next = null;
-      _searched = false;
+      _songNext = null;
+      _playlistNext = null;
+      _songsLoaded = false;
+      _playlistsLoaded = false;
     });
-    if (query.trim().isEmpty) return;
-    _debounce = Timer(const Duration(milliseconds: 450), _search);
   }
 
   Future<void> _search({bool more = false}) async {
-    _debounce?.cancel();
     final query = _query.text.trim();
     if (!widget.trending && query.isEmpty) return;
     final generation = ++_generation;
     setState(() {
       _busy = true;
       _error = null;
-      _searched = true;
       if (!more) {
-        _tracks = [];
-        _playlists = [];
-        _next = null;
+        if (_playlistTab && !widget.trending) {
+          _playlists = [];
+          _playlistNext = null;
+        } else {
+          _tracks = [];
+          _songNext = null;
+        }
       }
     });
     try {
-      final page = more ? _next : null;
       if (_playlistTab && !widget.trending) {
         final result = await widget.app.api.playlists(
           query,
           widget.app.region,
-          page: page,
+          page: more ? _playlistNext : null,
         );
         if (!mounted || generation != _generation) return;
         setState(() {
+          _playlistsLoaded = true;
           _playlists = [
             ..._playlists,
             ...result.items.where(
               (p) => _playlists.every((old) => old.id != p.id),
             ),
           ];
-          _next = result.nextPageToken;
+          _playlistNext = result.nextPageToken;
         });
       } else {
         final result = widget.trending
-            ? await widget.app.api.trending(widget.app.region, page: page)
-            : await widget.app.api.search(query, widget.app.region, page: page);
+            ? await widget.app.api.trending(
+                widget.app.region,
+                page: more ? _songNext : null,
+              )
+            : await widget.app.api.search(
+                query,
+                widget.app.region,
+                page: more ? _songNext : null,
+              );
         if (!mounted || generation != _generation) return;
         setState(() {
+          _songsLoaded = true;
           _tracks = [
             ..._tracks,
             ...result.items.where(
               (t) => _tracks.every((old) => old.id != t.id),
             ),
           ];
-          _next = result.nextPageToken;
+          _songNext = result.nextPageToken;
         });
       }
       if (!widget.trending) widget.app.rememberSearch(query);
@@ -532,7 +529,6 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void dispose() {
     _generation++;
-    _debounce?.cancel();
     _query.dispose();
     super.dispose();
   }
@@ -582,15 +578,30 @@ class _SearchPageState extends State<SearchPage> {
                   onSubmitted: (_) => _search(),
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
-                    hintText: 'Songs, artists, playlists',
+                    hintText: 'Type a song or artist, then search',
                     prefixIcon: const Icon(Icons.search),
-                    suffixIcon: IconButton(
-                      tooltip: 'Clear search',
-                      onPressed: () {
-                        _query.clear();
-                        _changed('');
-                      },
-                      icon: const Icon(Icons.close),
+                    suffixIconConstraints: const BoxConstraints(minWidth: 96),
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Search',
+                          onPressed: _query.text.trim().isEmpty || _busy
+                              ? null
+                              : _search,
+                          icon: const Icon(Icons.arrow_forward_rounded),
+                        ),
+                        IconButton(
+                          tooltip: 'Clear search',
+                          onPressed: _query.text.isEmpty
+                              ? null
+                              : () {
+                                  _query.clear();
+                                  _changed('');
+                                },
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -613,8 +624,10 @@ class _SearchPageState extends State<SearchPage> {
               ],
               selected: {_playlistTab},
               onSelectionChanged: (value) {
-                setState(() => _playlistTab = value.first);
-                _search();
+                final playlistTab = value.first;
+                setState(() => _playlistTab = playlistTab);
+                final loaded = playlistTab ? _playlistsLoaded : _songsLoaded;
+                if (!loaded && _query.text.trim().isNotEmpty) _search();
               },
             ),
           ),
@@ -638,6 +651,7 @@ class _SearchPageState extends State<SearchPage> {
                       title: Text(query),
                       onTap: () {
                         _query.text = query;
+                        _changed(query);
                         _search();
                       },
                     ),
@@ -673,8 +687,7 @@ class _SearchPageState extends State<SearchPage> {
                 if (_searched &&
                     !_busy &&
                     _error == null &&
-                    visible.isEmpty &&
-                    _playlists.isEmpty)
+                    (_playlistTab ? _playlists.isEmpty : visible.isEmpty))
                   const EmptyMessage(
                     'No matches yet',
                     'Try another search or reduce the content filter in Settings.',
