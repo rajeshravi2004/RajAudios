@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { ExclamationTriangleIcon, QueueListIcon, XMarkIcon } from '@heroicons/react/24/outline'
 
 const DialogContext = createContext(null)
 
@@ -91,8 +91,10 @@ function AppDialog({ dialog, onClose }) {
           <XMarkIcon />
         </button>
 
-        {dialog.tone === 'danger' && (
-          <div className="dialog-icon"><ExclamationTriangleIcon /></div>
+        {(dialog.tone === 'danger' || dialog.icon === 'playlist') && (
+          <div className={`dialog-icon${dialog.icon === 'playlist' ? ' dialog-icon-playlist' : ''}`}>
+            {dialog.icon === 'playlist' ? <QueueListIcon /> : <ExclamationTriangleIcon />}
+          </div>
         )}
 
         <h2 id="app-dialog-title">{dialog.title || (isPrompt ? 'Enter a name' : 'Are you sure?')}</h2>

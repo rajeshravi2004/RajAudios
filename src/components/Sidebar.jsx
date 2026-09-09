@@ -80,6 +80,7 @@ export function Sidebar({ currentView, onNavigate }) {
       inputLabel: 'Playlist name',
       placeholder: 'My playlist',
       confirmLabel: 'Create playlist',
+      icon: 'playlist',
       required: true,
     })
     if (name) {

@@ -155,6 +155,7 @@ function PlaylistsTab({ playlists, onOpenPlaylist, onDelete, onCreatePlaylist })
       inputLabel: 'Playlist name',
       placeholder: 'My playlist',
       confirmLabel: 'Create playlist',
+      icon: 'playlist',
       required: true,
     })
     if (name) await onCreatePlaylist(name)
@@ -171,19 +172,17 @@ function PlaylistsTab({ playlists, onOpenPlaylist, onDelete, onCreatePlaylist })
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold">Your Playlists</h2>
+    <div className="library-playlists">
+      <div className="library-playlists-header">
+        <div>
+          <h2>Your Playlists</h2>
+          <p>{playlists.length ? `${playlists.length} collection${playlists.length === 1 ? '' : 's'} made by you` : 'Keep every mood in its own place'}</p>
+        </div>
         <button
           onClick={handleCreate}
-          className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all"
-          style={{
-            background: 'var(--accent-subtle)',
-            border: '1px solid var(--border-accent)',
-            color: 'var(--text-accent)',
-          }}
+          className="primary-button library-create-button"
         >
-          <PlusIcon className="h-4 w-4" />
+          <PlusIcon />
           New Playlist
         </button>
       </div>
@@ -196,20 +195,19 @@ function PlaylistsTab({ playlists, onOpenPlaylist, onDelete, onCreatePlaylist })
           action={
             <button
               onClick={handleCreate}
-              className="px-4 py-2 rounded-full text-sm font-medium"
-              style={{ background: 'var(--accent)', color: 'white' }}
+              className="primary-button"
             >
+              <PlusIcon />
               Create Playlist
             </button>
           }
         />
       ) : (
-        <div className="space-y-2">
+        <div className="library-playlist-grid">
           {playlists.map(playlist => (
             <div
               key={playlist.id}
-              className="flex items-center gap-4 p-3 rounded-xl cursor-pointer group transition-colors"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-card)' }}
+              className="library-playlist-card group"
               onClick={() => onOpenPlaylist?.(playlist)}
               onKeyDown={event => {
                 if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
@@ -223,22 +221,21 @@ function PlaylistsTab({ playlists, onOpenPlaylist, onDelete, onCreatePlaylist })
             >
               {playlist.thumbnail ? (
                 <img src={playlist.thumbnail} alt={playlist.title}
-                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                  className="library-playlist-artwork" />
               ) : (
-                <div className="w-12 h-12 rounded-lg flex-shrink-0 flex items-center justify-center"
-                  style={{ background: 'var(--accent-subtle)' }}>
-                  <QueueListIcon className="h-6 w-6" style={{ color: 'var(--accent-bright)' }} />
+                <div className="library-playlist-artwork library-playlist-artwork-empty">
+                  <QueueListIcon />
                 </div>
               )}
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate">{playlist.title}</p>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              <div className="library-playlist-copy">
+                <p>{playlist.title}</p>
+                <small>
                   {playlist.tracks?.length || 0} tracks · {formatRelativeTime(playlist.updatedAt || playlist.createdAt)}
-                </p>
+                </small>
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); handleDelete(playlist) }}
-                className="icon-btn opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300"
+                className="icon-btn library-playlist-delete"
                 aria-label="Delete playlist"
               >
                 <TrashIcon className="h-4 w-4" />

@@ -65,6 +65,7 @@ export function PlaylistDetail({ playlist, onBack }) {
       inputLabel: 'Playlist name',
       defaultValue: playlist.title,
       confirmLabel: 'Save playlist',
+      icon: 'playlist',
       required: true,
     })
     if (!name) return
@@ -246,7 +247,7 @@ export function UserPlaylistDetail({ playlist, onBack }) {
               {tracks.length} tracks
             </p>
             <div className="flex gap-3 flex-wrap">
-            <button className="btn-secondary" onClick={() => setAddingSongs(true)}><PlusIcon className="h-5 w-5" /> Add songs</button>
+            <button className="secondary-button" onClick={() => setAddingSongs(true)}><PlusIcon className="h-5 w-5" /> Add songs</button>
             <button
               onClick={() => tracks.length > 0 && playTrack(tracks[0], tracks, 0)}
               disabled={tracks.length === 0}

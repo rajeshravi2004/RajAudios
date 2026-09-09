@@ -94,6 +94,60 @@ class _RajifyAppState extends State<RajifyApp> {
         backgroundColor: brightness == Brightness.dark
             ? const Color(0xff09090f)
             : const Color(0xfffaf8ff),
+        titleTextStyle: TextStyle(
+          color: scheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -.3,
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        elevation: 12,
+        backgroundColor: brightness == Brightness.dark
+            ? const Color(0xff171720)
+            : const Color(0xffffffff),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        elevation: 12,
+        modalElevation: 16,
+        showDragHandle: true,
+        backgroundColor: brightness == Brightness.dark
+            ? const Color(0xff15151e)
+            : const Color(0xffffffff),
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        color: brightness == Brightness.dark
+            ? const Color(0xff16161f)
+            : const Color(0xffffffff),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 46),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 46),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         height: 68,
@@ -112,9 +166,24 @@ class _RajifyAppState extends State<RajifyApp> {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
+        fillColor: scheme.surfaceContainerHighest.withValues(alpha: .55),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: .5),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
       ),
       snackBarTheme: const SnackBarThemeData(

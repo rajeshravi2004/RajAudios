@@ -48,13 +48,13 @@ class _LibraryPageState extends State<LibraryPage> {
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: 'Create playlist',
+              FilledButton.tonalIcon(
                 onPressed: () async {
                   final title = await editName(context);
                   if (title != null) app.createPlaylist(title);
                 },
                 icon: const Icon(Icons.add_rounded),
+                label: const Text('New'),
               ),
             ],
           ),
@@ -73,15 +73,40 @@ class _LibraryPageState extends State<LibraryPage> {
         ),
         Expanded(
           child: ListView(
+            padding: const EdgeInsets.only(bottom: 8),
             children: [
               if (_tab == 0) ...[
-                ListTile(
-                  leading: const Icon(Icons.add_circle_outline),
-                  title: const Text('Create playlist'),
-                  onTap: () async {
-                    final title = await editName(context);
-                    if (title != null) app.createPlaylist(title);
-                  },
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Card(
+                    color: Theme.of(context).colorScheme.primaryContainer
+                        .withValues(alpha: .5),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.all(12),
+                      leading: Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Icon(
+                          Icons.add_rounded,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                      ),
+                      title: const Text(
+                        'Create playlist',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: const Text('Start a new collection of songs'),
+                      trailing: const Icon(Icons.arrow_forward_rounded),
+                      onTap: () async {
+                        final title = await editName(context);
+                        if (title != null) app.createPlaylist(title);
+                      },
+                    ),
+                  ),
                 ),
                 if (app.playlists.isEmpty)
                   const EmptyMessage(
@@ -160,22 +185,48 @@ class PlaylistTile extends StatelessWidget {
   final AppState app;
   final PlayerStateModel player;
   @override
-  Widget build(BuildContext context) => ListTile(
-    leading: Artwork(
-      playlist.thumbnail.isNotEmpty
-          ? playlist.thumbnail
-          : playlist.tracks.firstOrNull?.thumbnail ?? '',
-    ),
-    title: Text(playlist.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-    subtitle: Text(
-      playlist.remote ? playlist.channel : '${playlist.tracks.length} songs',
-    ),
-    trailing: const Icon(Icons.chevron_right),
-    onTap: () => Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            PlaylistPage(playlist: playlist, app: app, player: player),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+    child: Card(
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        minTileHeight: 76,
+        leading: Artwork(
+          playlist.thumbnail.isNotEmpty
+              ? playlist.thumbnail
+              : playlist.tracks.firstOrNull?.thumbnail ?? '',
+          size: 54,
+        ),
+        title: Text(
+          playlist.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            playlist.remote
+                ? playlist.channel
+                : '${playlist.tracks.length} ${playlist.tracks.length == 1 ? 'song' : 'songs'}',
+          ),
+        ),
+        trailing: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.chevron_right_rounded, size: 20),
+        ),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                PlaylistPage(playlist: playlist, app: app, player: player),
+          ),
+        ),
       ),
     ),
   );

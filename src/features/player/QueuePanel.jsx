@@ -34,6 +34,7 @@ export function QueuePanel({ onClose }) {
       inputLabel: 'Playlist name',
       defaultValue: 'My Queue',
       confirmLabel: 'Save playlist',
+      icon: 'playlist',
       required: true,
     })
     if (!name) return
