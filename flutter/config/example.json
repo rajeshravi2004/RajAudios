@@ -1,0 +1,6 @@
+{
+  "API_BASE_URL": "https://your-rajify-deployment.vercel.app",
+  "SUPABASE_URL": "",
+  "SUPABASE_PUBLISHABLE_KEY": "",
+  "ADMIN_EMAIL": ""
+}

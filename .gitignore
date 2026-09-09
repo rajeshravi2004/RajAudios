@@ -31,3 +31,12 @@ supabase/.temp/
 *.sln
 *.sw?
 .vercel
+
+# Flutter build output, machine configuration, and Android signing material
+flutter/build/
+flutter/.dart_tool/
+flutter/config.local.json
+flutter/android/key.properties
+*.jks
+*.keystore
+/downloads/

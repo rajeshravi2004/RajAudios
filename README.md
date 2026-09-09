@@ -1,10 +1,32 @@
 # Rajify
 
-A focused music discovery experience built with React, Electron, YouTube Data API, and Supabase.
+A focused music discovery experience available as a **React web app**, an **Electron Windows app (.exe)**, and a **native Flutter Android app (.apk)**, powered by YouTube and Supabase.
 
 ## Live app
 
 ### [Open Rajify](https://rajaudios.vercel.app)
+
+## Flutter Android app & APK download
+
+### [Download Rajify Android APK](https://github.com/rajeshravi2004/RajAudios/releases/download/flutter-v1.0.0-preview.1/rajify-android.apk)
+
+Direct download, no GitHub sign-in required. Android 7.0+; approximately 54 MB.
+This first preview uses test signing. [Release notes and checksum](https://github.com/rajeshravi2004/RajAudios/releases/tag/flutter-v1.0.0-preview.1).
+
+Rajify also has a **Flutter version** in [`flutter/`](flutter/). Discovery, search,
+trending, playlists, likes, listening history, queue controls, settings, and account
+administration are built with native Flutter widgets. The app uses the existing
+Rajify API; only YouTube playback uses an embedded YouTube player.
+
+- **Development builds:** open [Flutter Android APK builds](https://github.com/rajeshravi2004/RajAudios/actions/workflows/flutter-apk.yml), select a successful run, and download **rajify-android-apk** under **Artifacts**. GitHub sign-in is required for these temporary build artifacts; use the direct APK link above for the published preview.
+- **Versioned downloads:** signed Android releases appear under [GitHub Releases](https://github.com/rajeshravi2004/RajAudios/releases) when an `android-v*` tag is published with release signing configured.
+- **Build locally:** `cd flutter`, then `flutter pub get` and `flutter build apk --release --dart-define-from-file=config/production.json`. The APK is at `flutter/build/app/outputs/flutter-apk/app-release.apk`.
+- **Setup and platform details:** see the [Flutter README](flutter/README.md), including Google OAuth callback setup, signing, and Android audio limitations.
+
+Likes, playlists, and history stay on each device, matching the web app's local
+library model. Signed-in preferences sync between the web, desktop, and Flutter
+apps. Android uses the phone's Bluetooth/media output settings; the Windows
+multi-output audio router is a desktop feature.
 
 ## Highlights
 
@@ -15,6 +37,7 @@ A focused music discovery experience built with React, Electron, YouTube Data AP
 - Audio and video playback modes powered by the YouTube player
 - Session-only personal YouTube API key fallback
 - Installable Electron desktop build
+- Native Flutter Android version with downloadable APK builds
 - Shared listening on Windows: select multiple audio outputs, with mono audio, per-output volume, and timing adjustment
 
 ## Security model
@@ -35,6 +58,7 @@ A focused music discovery experience built with React, Electron, YouTube Data AP
 | Database | Supabase Postgres | Profiles and synced preferences |
 | Server API | Vercel Functions | Protected YouTube proxy and owner administration |
 | Desktop | Electron | Native Windows application |
+| Android | Flutter + Dart | Native mobile discovery, library, player controls, and APK distribution |
 
 ## Local development
 
