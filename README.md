@@ -14,10 +14,10 @@ Windows x64 installer, version 1.1.0. Build it locally with `npm run electron:bu
 
 ## Flutter Android app & APK download
 
-### [Download Rajify Android APK](https://github.com/rajeshravi2004/RajAudios/releases/download/flutter-v1.1.0-preview.2/rajify-android.apk)
+### [Download Rajify Android APK](https://github.com/rajeshravi2004/RajAudios/releases/download/flutter-v1.1.0-preview.3/rajify-android.apk)
 
 Direct download, no GitHub sign-in required. Android 7.0+; approximately 59 MB.
-This preview uses test signing. [Release notes and checksum](https://github.com/rajeshravi2004/RajAudios/releases/tag/flutter-v1.1.0-preview.2).
+This preview uses test signing. [Release notes and checksum](https://github.com/rajeshravi2004/RajAudios/releases/tag/flutter-v1.1.0-preview.3).
 
 Rajify also has a **Flutter version** in [`flutter/`](flutter/). Discovery, search,
 trending, playlists, likes, listening history, queue controls, settings, and account
