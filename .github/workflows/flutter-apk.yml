@@ -1,0 +1,107 @@
+name: Flutter Android APK
+
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths: ['flutter/**', '.github/workflows/flutter-apk.yml']
+    tags: ['android-v*']
+  pull_request:
+    paths: ['flutter/**', '.github/workflows/flutter-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+      - name: Dependencies, analysis and tests
+        run: |
+          flutter pub get
+          dart format --output=none --set-exit-if-changed lib test
+          flutter analyze
+          flutter test
+      - name: Configure signing
+        if: github.event_name != 'pull_request'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/android-v') }}
+        run: |
+          python3 - <<'PY'
+          import base64, os, pathlib
+          names = ['KEYSTORE_BASE64', 'STORE_PASSWORD', 'KEY_PASSWORD', 'KEY_ALIAS']
+          values = [os.environ.get(name, '') for name in names]
+          if not all(values):
+              if any(values) or os.environ['IS_RELEASE'] == 'true':
+                  raise SystemExit('Configure all four Android signing secrets before releasing.')
+              print('Building an installable preview with debug signing.')
+          else:
+              key = pathlib.Path(os.environ['RUNNER_TEMP']) / 'rajify-release.jks'
+              key.write_bytes(base64.b64decode(values[0], validate=True))
+              def escape(value):
+                  return value.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace(' ', '\\ ')
+              pathlib.Path('android/key.properties').write_text(
+                  f'storeFile={escape(str(key))}\nstorePassword={escape(values[1])}\n'
+                  f'keyPassword={escape(values[2])}\nkeyAlias={escape(values[3])}\n')
+          PY
+      - name: Build universal APK
+        run: flutter build apk --release --build-number=${{ github.run_number }} --dart-define-from-file=config/production.json
+      - name: Package download
+        run: |
+          mkdir -p apk-download
+          cp build/app/outputs/flutter-apk/app-release.apk apk-download/rajify-android.apk
+          cd apk-download
+          sha256sum rajify-android.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rajify-android-apk
+          path: flutter/apk-download/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove temporary signing files
+        if: always()
+        run: |
+          rm -f android/key.properties "$RUNNER_TEMP/rajify-release.jks"
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/android-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: rajify-android-apk
+          path: apk-download
+      - name: Publish APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" apk-download/rajify-android.apk apk-download/SHA256SUMS.txt \
+            --verify-tag --title "Rajify Android $RELEASE_TAG" \
+            --notes 'Native Flutter version of Rajify. Download rajify-android.apk and open it on an Android 7.0+ device. This is an APK installer, not a music download. See flutter/README.md for setup and platform differences.'
