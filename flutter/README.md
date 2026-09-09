@@ -9,6 +9,9 @@ The native Android version of Rajify, alongside the React website and Electron W
 
 ## Features
 
+**[Download the Android APK directly](https://github.com/rajeshravi2004/RajAudios/releases/download/flutter-v1.0.0-preview.1/rajify-android.apk)** (54 MB, Android 7.0+, no GitHub sign-in required).
+The [first preview release](https://github.com/rajeshravi2004/RajAudios/releases/tag/flutter-v1.0.0-preview.1) includes a SHA-256 checksum and uses test signing.
+
 - Native Material 3 interface with Rajify's violet theme, dark/light/device appearance, phone and landscape layouts.
 - Discovery in all 20 languages supported by the website: trending songs, new releases, popular songs, playlists, history-based suggestions, and continue listening.
 - Song/artist search, playlist search, recent searches, regional charts, pagination, loading/error/retry states, and music quality filtering.

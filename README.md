@@ -8,12 +8,17 @@ A focused music discovery experience available as a **React web app**, an **Elec
 
 ## Flutter Android app & APK download
 
+### [Download Rajify Android APK](https://github.com/rajeshravi2004/RajAudios/releases/download/flutter-v1.0.0-preview.1/rajify-android.apk)
+
+Direct download, no GitHub sign-in required. Android 7.0+; approximately 54 MB.
+This first preview uses test signing. [Release notes and checksum](https://github.com/rajeshravi2004/RajAudios/releases/tag/flutter-v1.0.0-preview.1).
+
 Rajify also has a **Flutter version** in [`flutter/`](flutter/). Discovery, search,
 trending, playlists, likes, listening history, queue controls, settings, and account
 administration are built with native Flutter widgets. The app uses the existing
 Rajify API; only YouTube playback uses an embedded YouTube player.
 
-- **Download an APK:** open [Flutter Android APK builds](https://github.com/rajeshravi2004/RajAudios/actions/workflows/flutter-apk.yml), select a successful run, and download **rajify-android-apk** under **Artifacts**. Extract the ZIP and open `rajify-android.apk` on Android 7.0 or newer. GitHub sign-in is required for build artifacts.
+- **Development builds:** open [Flutter Android APK builds](https://github.com/rajeshravi2004/RajAudios/actions/workflows/flutter-apk.yml), select a successful run, and download **rajify-android-apk** under **Artifacts**. GitHub sign-in is required for these temporary build artifacts; use the direct APK link above for the published preview.
 - **Versioned downloads:** signed Android releases appear under [GitHub Releases](https://github.com/rajeshravi2004/RajAudios/releases) when an `android-v*` tag is published with release signing configured.
 - **Build locally:** `cd flutter`, then `flutter pub get` and `flutter build apk --release --dart-define-from-file=config/production.json`. The APK is at `flutter/build/app/outputs/flutter-apk/app-release.apk`.
 - **Setup and platform details:** see the [Flutter README](flutter/README.md), including Google OAuth callback setup, signing, and Android audio limitations.
