@@ -37,13 +37,17 @@ For another deployment, copy `config/example.json` to `config.local.json`, set i
 
 ## Google sign-in setup
 
-Use the same Supabase project and Google provider as the website. In **Supabase ? Authentication ? URL Configuration ? Redirect URLs**, add this exact native callback:
+Use the same Supabase project and Google provider as the website. In **Supabase > Authentication > URL Configuration > Redirect URLs**, add this exact native callback:
 
 ```text
 com.rajaudios.rajify://login-callback/
 ```
 
-Keep the existing website redirects too. Google's OAuth client continues to use the Supabase HTTPS callback, not the Android custom scheme. Flutter launches the system browser and receives the PKCE callback through the Android intent filter. Supabase Flutter persists and refreshes the session. The callback allow-list is a deployment setting and must be configured by the project owner; merely building an APK does not update it. Verify login/logout and switching accounts on a real device before distributing to listeners.
+Keep the existing website redirects too. Google's OAuth client continues to use the Supabase HTTPS callback, not the Android custom scheme. Flutter launches the system browser and receives the PKCE callback through the Android intent filter. Supabase Flutter persists and refreshes the session. The callback allow-list is a deployment setting; merely building an APK does not update it. Verify login/logout and switching accounts on a real device before distributing to listeners.
+
+The production project's native callback is configured. If Google sign-in opens RajeshOS or another website, check that this exact callback is still in the redirect allow-list: an unapproved redirect falls back to the shared project's Site URL. Preserve the other apps' URLs when adding it. This server setting takes effect for the existing APK; close the previous browser sign-in tab and start Google sign-in again from Rajify.
+
+Callback routing was verified by starting Google OAuth and simulating cancellation: Supabase returned `com.rajaudios.rajify://login-callback/`. Completing Google account sign-in still requires a device/account check.
 
 Preferences sync when signing in, changing settings, or pressing Sync in Settings. Failed sync preserves local changes and shows a retry status. As in the web app, libraries are local to the device; playlists/likes/history are not advertised as cloud-synced. The app does not upload listening history or personal YouTube keys.
 
