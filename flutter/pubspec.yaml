@@ -1,7 +1,7 @@
 name: rajify
 description: Native Flutter music discovery, library and YouTube player for Rajify.
 publish_to: none
-version: 1.1.0+2
+version: 1.1.0+3
 environment:
   sdk: ^3.13.0
 dependencies:
