@@ -1,6 +1,7 @@
-import { MusicalNoteIcon, ShieldCheckIcon, SparklesIcon } from '@heroicons/react/24/solid'
+import { ShieldCheckIcon, SparklesIcon } from '@heroicons/react/24/solid'
 import { CloudArrowUpIcon, KeyIcon } from '@heroicons/react/24/outline'
 import { useAuth } from '../../stores/authStore.jsx'
+import { BrandMark } from '../../components/BrandMark.jsx'
 
 function GoogleMark() {
   return (
@@ -19,7 +20,7 @@ export function AuthGate({ children }) {
   if (loading) {
     return (
       <div className="auth-loading">
-        <div className="brand-mark"><MusicalNoteIcon className="h-7 w-7" /></div>
+        <BrandMark />
         <div className="auth-loading-line" />
       </div>
     )
@@ -34,7 +35,7 @@ export function AuthGate({ children }) {
 
       <section className="auth-story">
         <div className="auth-brand">
-          <div className="brand-mark"><MusicalNoteIcon className="h-6 w-6" /></div>
+          <BrandMark />
           <span>Rajify</span>
         </div>
         <div className="auth-story-copy">

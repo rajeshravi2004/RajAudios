@@ -1,0 +1,14 @@
+node_modules/
+dist/
+release/
+downloads/
+flutter/
+.git/
+.env
+.env.*
+test-results/
+test-results-desktop/
+playwright-report/
+tests/
+scripts/
+*.log

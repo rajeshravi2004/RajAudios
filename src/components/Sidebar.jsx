@@ -7,7 +7,6 @@ import {
   HomeIcon,
   MagnifyingGlassIcon,
   FireIcon,
-  MusicalNoteIcon,
   HeartIcon,
   QueueListIcon,
   ClockIcon,
@@ -31,6 +30,7 @@ import { useLibrary } from '../stores/libraryStore.jsx'
 import { usePlayer } from '../stores/playerStore.jsx'
 import { useAuth } from '../stores/authStore.jsx'
 import { useDialog } from './ui/Dialog.jsx'
+import { BrandMark } from './BrandMark.jsx'
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Home', icon: HomeIcon, activeIcon: HomeSolid },
@@ -93,10 +93,7 @@ export function Sidebar({ currentView, onNavigate }) {
       {/* Logo */}
       <div className="p-5 pb-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ background: 'var(--accent)', boxShadow: 'var(--shadow-glow)' }}>
-            <MusicalNoteIcon className="h-5 w-5 text-white" />
-          </div>
+          <BrandMark size={36} />
           <div>
             <h1 className="text-base font-bold" style={{ color: 'var(--text-primary)', lineHeight: 1.2 }}>
               Rajify
