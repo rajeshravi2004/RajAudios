@@ -10,9 +10,6 @@ The native Android version of Rajify, alongside the React website and Electron W
 
 ## Features
 
-**[Download the Android APK directly](https://github.com/rajeshravi2004/RajAudios/releases/download/flutter-v1.1.0-preview.2/rajify-android.apk)** (59 MB, Android 7.0+, no GitHub sign-in required).
-The [mobile player preview](https://github.com/rajeshravi2004/RajAudios/releases/tag/flutter-v1.1.0-preview.2) includes a SHA-256 checksum and uses test signing.
-
 - Native Material 3 interface with Rajify's violet theme, dark/light/device appearance, phone and landscape layouts.
 - Discovery in all 20 languages supported by the website: trending songs, new releases, popular songs, playlists, history-based suggestions, and continue listening.
 - Song/artist search, playlist search, recent searches, regional charts, pagination, loading/error/retry states, and music quality filtering.
@@ -54,7 +51,7 @@ Callback routing was verified by starting Google OAuth and simulating cancellati
 
 Preferences sync when signing in, changing settings, or pressing Sync in Settings. Failed sync preserves local changes and shows a retry status. As in the web app, libraries are local to the device; playlists/likes/history are not advertised as cloud-synced. The app does not upload listening history or personal YouTube keys.
 
-## Build and download an APK
+## Build locally
 
 ```bash
 flutter build apk --release --dart-define-from-file=config/production.json
@@ -82,15 +79,11 @@ The helper scripts run analysis/tests, build the APK, and copy it with a SHA-256
 bash flutter/scripts/build-apk.sh
 ```
 
-Transfer the APK to an Android phone and open it. Allow installation from the browser/file manager when Android prompts, then install Rajify. The app needs internet access to discover/stream music. APK download means downloading the app installer; Rajify does not download music files.
+Transfer the APK to an Android phone and open it. Allow installation from the browser/file manager when Android prompts, then install Rajify. The app needs internet access to discover/stream music. Rajify does not download music files.
 
 ## GitHub APK builds & releases
 
 The [Flutter Android APK workflow](../.github/workflows/flutter-apk.yml) runs for changes to Flutter on main and pull requests, and can be run manually once present on the default branch.
-
-1. Open **Actions > Flutter Android APK** and select a successful run.
-2. Download **rajify-android-apk** under **Artifacts** (GitHub sign-in required).
-3. Extract the ZIP. It contains `rajify-android.apk` and `SHA256SUMS.txt`.
 
 Artifacts expire after 30 days. With signing configured, pushing an `android-v*` tag publishes a permanent GitHub Release with the APK/checksum. Build numbers use the workflow run number. Increase the version in `pubspec.yaml` for new versions.
 
